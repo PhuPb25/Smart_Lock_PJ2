@@ -8,6 +8,8 @@
 #include <Adafruit_Fingerprint.h>
 #include <Adafruit_NeoPixel.h>
 #include <MFRC522.h>
+#include "r503_driver.h"
+
 
 // =========================================
 // SERIAL & CẢM BIẾN VÂN TAY
@@ -17,8 +19,9 @@
 extern HardwareSerial fpSerialAS;
 extern Adafruit_Fingerprint fingerAS;
 
-// R558S — UART2 (giao tiếp thô qua UART)
+// R503 — UART2 (dùng thư viện Adafruit_Fingerprint)
 extern HardwareSerial fpSerialRS;
+extern R503 r503;
 
 // =========================================
 // CÁC THIẾT BỊ KHÁC
@@ -38,12 +41,6 @@ extern const char* password;
 extern bool isEnrollingAS;
 extern bool isEnrollingRS;
 extern bool isScanningRFID;
-
-// =========================================
-// TOUCH PIN — R558S báo có ngón tay
-// =========================================
-extern volatile bool fingerTouched;
-void IRAM_ATTR touchInterruptHandler();
 
 // =========================================
 // AUTH HELPER — kiểm tra X-API-Key header

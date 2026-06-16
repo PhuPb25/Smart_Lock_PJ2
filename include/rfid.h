@@ -1,9 +1,10 @@
-#include <Arduino.h>
 #ifndef RFID_H
 #define RFID_H
 
+#include <Arduino.h>
 //Lưu RFIDUser
 #define MAX_RFID 20
+
 struct RFIDUser {
   byte uid[4];
   String uidStr;

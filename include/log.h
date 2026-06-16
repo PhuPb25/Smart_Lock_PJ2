@@ -27,7 +27,7 @@ void logAccessAS(int id, const String& uid, const String& name,
                  bool granted, const String& code = "");
 
 // =========================================
-// R558S — log riêng
+// R503 — log riêng
 // =========================================
 extern AccessLog logRS[20];
 extern int logIndexRS;

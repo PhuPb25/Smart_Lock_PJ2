@@ -14,9 +14,11 @@ HardwareSerial fpSerialAS(1);
 Adafruit_Fingerprint fingerAS(&fpSerialAS);
 
 // =========================================
-// R558S — UART2 (RX=15, TX=16)
+// R503 — UART2 (RX=15, TX=16)
+// Thư viện Adafruit_Fingerprint hỗ trợ R503 sẵn
 // =========================================
 HardwareSerial fpSerialRS(2);
+R503 r503(fpSerialRS);
 
 // =========================================
 // LED & RFID
@@ -31,21 +33,13 @@ bool isEnrollingAS  = false;
 bool isEnrollingRS  = false;
 bool isScanningRFID = false;
 
-volatile bool fingerTouched = false;
-
-void IRAM_ATTR touchInterruptHandler() {
-    fingerTouched = true;
-}
-
 // =========================================
-// FIX: Kiểm tra X-API-Key header
-// Gọi ở đầu mỗi endpoint quản lý.
+// Kiểm tra X-API-Key header
 // Trả về true nếu hợp lệ, false (và tự gửi 401) nếu không.
 // =========================================
 bool checkApiKey() {
     String storedKey = prefs.getString("api_key", "");
     if (storedKey.length() == 0) {
-        // Chưa cấu hình key — cho qua (backwards compat) nhưng log cảnh báo
         Serial.println("[auth] CẢNH BÁO: api_key chưa được thiết lập!");
         return true;
     }

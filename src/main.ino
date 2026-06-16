@@ -16,12 +16,11 @@
 // =========================================
 #define AS608_RX_PIN  17
 #define AS608_TX_PIN  18
-#define R558S_RX_PIN  15
-#define R558S_TX_PIN  16
-#define TOUCH_PIN     7    // ngắt báo có ngón tay trên R558S
+#define R503_RX_PIN   15
+#define R503_TX_PIN   16
 
 static void initAS608();
-static void initR558S();
+static void initR503();
 static void initRFID();
 static void initWiFi();
 static void initNTP();
@@ -31,23 +30,36 @@ static void initNTP();
 // =========================================
 void setup() {
     Serial.begin(9600);
+    // uint32_t bauds[] = {9600, 19200, 38400, 57600, 115200};
+    // bool found = false;
 
-    // FIX: prefs.begin phải gọi TRƯỚC initSecrets và loadRFID
+    // for (int i = 0; i < 5; i++) {
+    //     Serial.printf("\n[R503] Thử quét với Baudrate: %d...\n", bauds[i]);
+        
+    //     // Gọi hàm begin của driver để cấu hình lại HardwareSerial theo baudrate thử nghiệm
+    //     if (r503.begin(bauds[i], R503_RX_PIN, R503_TX_PIN)) { 
+    //         Serial.printf("==> 🔥 TÌM THẤY RỒI! Cảm biến đang sống ở Baudrate: %d\n", bauds[i]);
+    //         found = true;
+    //         break; // Tìm thấy thì dừng vòng lặp luôn
+    //     }
+        
+    //     delay(200); // Đợi một chút trước khi thử mức baudrate tiếp theo
+    // }
+
+    // if (!found) {
+    //     Serial.println("\n[R503] ❌ Cảnh báo: Quét hết các mức tốc độ vẫn KHÔNG Handshake được!");
+    //     Serial.println("Vui lòng kiểm tra lại dây cáp nguồn, chân RX/TX xem có bị lỏng không.");
+    // }
+
+    // prefs.begin phải gọi TRƯỚC initSecrets và loadRFID
     prefs.begin("users", false);
 
     // Khởi tạo secrets vào flash lần đầu
     initSecrets();
 
     initAS608();
-    initR558S();
-    r558s_readSysPara();
+    initR503();
     initRFID();
-
-    // TOUCH PIN — R558S kéo xuống LOW khi có ngón tay
-    pinMode(TOUCH_PIN, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(TOUCH_PIN),
-                    touchInterruptHandler, FALLING);
-    Serial.println("[R558S] Touch interrupt OK");
 
     // LED NeoPixel
     pixels.begin();
@@ -56,7 +68,7 @@ void setup() {
 
     loadRFID();
     // emptyDatabaseAS();
-    // emptyR558S();
+    // emptyDatabaseRS();
 
     // Relay
     pinMode(RELAY_PIN, OUTPUT);
@@ -80,19 +92,8 @@ void loop() {
     server.handleClient();
 
     if (!isEnrollingAS && !isEnrollingRS && !isScanningRFID) {
-
-        // AS608 — poll bình thường
         checkAS608();
-
-        // R558S — chỉ gọi khi có ngón tay chạm (qua interrupt)
-        if (fingerTouched) {
-            detachInterrupt(digitalPinToInterrupt(TOUCH_PIN));
-            checkR558S();
-            fingerTouched = false;
-            attachInterrupt(digitalPinToInterrupt(TOUCH_PIN),
-                            touchInterruptHandler, FALLING);
-        }
-
+        checkR503();
         checkRFID();
     }
 
@@ -114,49 +115,21 @@ static void initAS608() {
 }
 
 // =========================================
-// INIT R558S — UART2 — 8N2 (bắt buộc!)
+// INIT R503 — UART2 — 8N2 (R503 yêu cầu 2 stop bits)
+// begin() sẽ khởi tạo serial và thực hiện handshake
 // =========================================
-static void initR558S() {
-    fpSerialRS.begin(57600, SERIAL_8N2, R558S_RX_PIN, R558S_TX_PIN);
-    delay(100);
-
-    uint8_t buf[32];
-    uint8_t hsCmd[] = {
-        0xEF,0x01, 0xFF,0xFF,0xFF,0xFF,
-        0x01, 0x00,0x03,
-        0x35,
-        0x00,0x39
-    };
-    while (fpSerialRS.available()) fpSerialRS.read();
-    fpSerialRS.write(hsCmd, sizeof(hsCmd));
-
-    uint32_t t = millis();
-    int idx = 0;
-    bool ok = false;
-    while (millis() - t < 1000) {
-        if (fpSerialRS.available()) {
-            uint8_t c = fpSerialRS.read();
-            if (idx == 0 && c != 0xEF) continue;
-            if (idx == 1 && c != 0x01) { idx = 0; continue; }
-            buf[idx++] = c;
-            if (idx >= 12) { ok = (buf[9] == 0x00); break; }
+static void initR503() {
+    // begin() tự khởi tạo serial với SERIAL_8N2 và thực hiện handshake
+    if (r503.begin(57600, R503_RX_PIN, R503_TX_PIN)) {
+        r503.setLED(0x01,0x07);
+        //r503.setSecurityLevel(5);
+        uint16_t count = 0;
+        if (r503.getTemplateCount(&count)) {
+            Serial.printf("[R503] Templates stored: %d\n", count);
         }
-    }
-
-    if (ok) {
-        Serial.println("[R558S] Khoi tao OK");
     } else {
-        Serial.println("[R558S] Khoi tao THAT BAI — kiem tra day noi va SERIAL_8N2");
+        Serial.println("[R503] Khoi tao DRIVER THAT BAI — kiem tra day noi va baud rate");
     }
-
-    // Tắt LED về mặc định
-    uint8_t ledOff[] = {
-        0xEF,0x01, 0xFF,0xFF,0xFF,0xFF,
-        0x01, 0x00,0x07,
-        0x3C, 0x04,0x00,0x00,0x00,
-        0x00,0x48
-    };
-    fpSerialRS.write(ledOff, sizeof(ledOff));
 }
 
 // =========================================

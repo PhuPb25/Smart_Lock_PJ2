@@ -65,89 +65,6 @@ static int base64Decode(const String& input, uint8_t* output, size_t maxLen) {
 }
 
 // =========================================
-// R558S — GIAO TIẾP UART THÔ
-// =========================================
-static void r558s_sendCommand(uint8_t cmdCode, const uint8_t* params, uint16_t paramLen) {
-    while (fpSerialRS.available()) fpSerialRS.read();
-    delay(30);
-
-    uint8_t packet[128];
-    uint16_t idx = 0;
-
-    packet[idx++] = 0xEF; packet[idx++] = 0x01;
-    packet[idx++] = 0xFF; packet[idx++] = 0xFF;
-    packet[idx++] = 0xFF; packet[idx++] = 0xFF;
-    packet[idx++] = 0x01;
-
-    uint16_t length = 3 + paramLen;
-    packet[idx++] = (length >> 8) & 0xFF;
-    packet[idx++] = length & 0xFF;
-
-    packet[idx++] = cmdCode;
-
-    // FIX: params có thể NULL nếu paramLen == 0 — kiểm tra trước khi dereference
-    for (uint16_t i = 0; i < paramLen && params != nullptr; i++) {
-        packet[idx++] = params[i];
-    }
-
-    uint16_t sum = 0;
-    for (uint16_t i = 6; i < idx; i++) sum += packet[i];
-
-    packet[idx++] = (sum >> 8) & 0xFF;
-    packet[idx++] = sum & 0xFF;
-
-    fpSerialRS.write(packet, idx);
-    Serial.printf("[SEND] CMD=0x%02X | Len=%d | Checksum=0x%04X\n", cmdCode, idx, sum);
-}
-
-// FIX: Tách rõ tham số bufSize và timeout — trước đây bị nhầm lẫn
-static bool r558s_readPacket(uint8_t* buf, size_t bufSize, uint32_t timeout = 3000) {
-    uint32_t startTime = millis();
-    size_t idx = 0;
-
-    while (millis() - startTime < timeout) {
-        if (fpSerialRS.available()) {
-            uint8_t c = fpSerialRS.read();
-
-            if (idx == 0) {
-                if (c != 0xEF) continue;
-            } else if (idx == 1) {
-                if (c != 0x01) { idx = 0; continue; }
-            }
-
-            if (idx >= bufSize) {
-                Serial.println("[R558S] Packet overflow!");
-                return false;
-            }
-
-            buf[idx++] = c;
-
-            if (idx >= 9) {
-                uint16_t packetLen = ((uint16_t)buf[7] << 8) | (uint16_t)buf[8];
-                uint16_t totalLen  = packetLen + 9;
-
-                if (totalLen > bufSize) {
-                    Serial.printf("[R558S] Packet too large: %d > %d\n", totalLen, (int)bufSize);
-                    return false;
-                }
-
-                if (idx >= totalLen) return true;
-            }
-        }
-        delay(1);
-    }
-
-    Serial.println("[R558S] Read packet timeout");
-    return false;
-}
-
-static void r558s_setLED(uint8_t mode, uint8_t color) {
-    uint8_t params[] = {mode, color, color, 0x00};
-    r558s_sendCommand(0x3C, params, 4);
-    delay(50);
-}
-
-// =========================================
 // TÌM SLOT TRỐNG
 // =========================================
 int findFreeSlotAS() {
@@ -158,14 +75,14 @@ int findFreeSlotAS() {
 }
 
 int findFreeSlotRS() {
-    for (int slot = 1; slot <= 127; slot++) {
+    for (int slot = 1; slot <= 199; slot++) {  // R503 đánh số từ 0, tối đa 200 slot
         if (!prefs.isKey(("rs_user_" + String(slot)).c_str())) return slot;
     }
     return -1;
 }
 
 // =========================================
-// AS608 — UpChar command (nội bộ)
+// HELPER — AS608: gửi lệnh UpChar thủ công
 // =========================================
 static uint8_t as608_sendUploadCharCommand() {
     uint8_t cmd[] = {
@@ -192,7 +109,7 @@ static uint8_t as608_sendUploadCharCommand() {
 }
 
 // =========================================
-// LƯU FLASH + SYNC SERVER SAU ENROLL AS608
+// SYNC SAU ENROLL — AS608
 // =========================================
 void syncAfterEnrollAS(uint8_t slot, String name, String code) {
     prefs.putString(("as_user_" + String(slot)).c_str(), name);
@@ -204,87 +121,68 @@ void syncAfterEnrollAS(uint8_t slot, String name, String code) {
     if (WiFi.status() != WL_CONNECTED) return;
 
     uint8_t templateBuffer[512];
-    if (manualDownloadModelAS(templateBuffer) != FINGERPRINT_OK) {
-        Serial.println("[AS608] Download template thất bại — vẫn lưu flash OK");
-        // Đẩy thông tin cơ bản không có template
-        HTTPClient http;
-        http.begin(getServerBase() + "/api/sync-user");
-        http.addHeader("Content-Type", "application/json");
-        JsonDocument doc;
-        doc["slot"]   = slot;
-        doc["name"]   = name;
-        doc["code"]   = code;
-        doc["sensor"] = "AS608";
-        String payload; serializeJson(doc, payload);
-        http.POST(payload); http.end();
-        return;
-    }
-
-    String base64FP = base64Encode(templateBuffer, 512);
-
     HTTPClient http;
     http.begin(getServerBase() + "/api/sync-user");
     http.addHeader("Content-Type", "application/json");
-
     JsonDocument doc;
-    doc["slot"]        = slot;
-    doc["name"]        = name;
-    doc["code"]        = code;
-    doc["sensor"]      = "AS608";
-    doc["fingerprint"] = base64FP;
+    doc["slot"]   = slot;
+    doc["name"]   = name;
+    doc["code"]   = code;
+    doc["sensor"] = "AS608";
+
+    if (manualDownloadModelAS(templateBuffer) == FINGERPRINT_OK) {
+        doc["fingerprint"] = base64Encode(templateBuffer, 512);
+        Serial.println("[AS608] Download template OK, đẩy lên server");
+    } else {
+        Serial.println("[AS608] Download template thất bại — sync không có template");
+    }
 
     String payload;
     serializeJson(doc, payload);
-
     int httpCode = http.POST(payload);
     Serial.printf("[AS608] syncAfterEnroll: HTTP %d\n", httpCode);
     http.end();
 }
 
 // =========================================
-// SYNC SAU ENROLL R558S — ĐÃ TỐI ƯU
+// SYNC SAU ENROLL — R503
 // =========================================
 void syncAfterEnrollRS(uint8_t slot, String name, String code) {
     prefs.putString(("rs_user_" + String(slot)).c_str(), name);
     prefs.putString(("rs_code_" + String(slot)).c_str(), code);
     prefs.putInt(("rs_slot_" + code).c_str(), slot);
 
-    Serial.printf("[R558S] Enroll OK - slot=%d | code=%s | name=%s\n", 
-                  slot, code.c_str(), name.c_str());
+    Serial.printf("[R503] ✓ Enroll OK - slot=%d | code=%s\n", slot, code.c_str());
 
-    if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("[R558S] Không có WiFi, chỉ lưu local");
-        return;
-    }
+    if (WiFi.status() != WL_CONNECTED) return;
 
-    // Thử lấy template
-    uint8_t templateBuffer[1024] = {0};
-    uint8_t result = manualDownloadModelRS(slot, templateBuffer);
+    uint8_t templateBuffer[1024] = {0};  // Giảm buffer
+    uint16_t len = 0;
 
     HTTPClient http;
     http.begin(getServerBase() + "/api/sync-user");
     http.addHeader("Content-Type", "application/json");
-
     JsonDocument doc;
-    doc["slot"]   = slot;
-    doc["name"]   = name;
-    doc["code"]   = code;
-    doc["sensor"] = "R558S";
+    doc["slot"] = slot;
+    doc["name"] = name;
+    doc["code"] = code;
+    doc["sensor"] = "R503";
 
-    if (result == FINGERPRINT_OK) {
-        String b64 = base64Encode(templateBuffer, 1024);
-        doc["fingerprint"] = b64;
-        Serial.printf("[R558S] Đẩy template (%d bytes)\n", b64.length());
+    if (r503.downloadTemplate(slot, templateBuffer, &len)) {
+        if (len > 768) len = 768;  // Cắt bớt nếu dư
+        doc["fingerprint"] = base64Encode(templateBuffer, len);
+        Serial.printf("[R503] Download template OK (%d bytes) → đẩy lên server\n", len);
     } else {
-        Serial.println("[R558S] Không lấy được template → chỉ đẩy thông tin cơ bản");
+        Serial.println("[R503] Download template thất bại");
     }
 
     String payload;
     serializeJson(doc, payload);
     int httpCode = http.POST(payload);
-    Serial.printf("[R558S] syncAfterEnroll: HTTP %d\n", httpCode);
+    Serial.printf("[R503] syncAfterEnroll: HTTP %d\n", httpCode);
     http.end();
 }
+
 // =========================================
 // ENROLL AS608
 // =========================================
@@ -323,83 +221,48 @@ uint8_t enrollAS608(uint8_t slot, String name, String code) {
 }
 
 // =========================================
-// ENROLL R558S
+// ENROLL R503 — DÙNG DRIVER
 // =========================================
-uint8_t enrollR558S(uint8_t slot, String name, String code) {
-    uint16_t r558sSlot = slot - 1;
-    Serial.printf("[R558S] AutoEnroll → slot #%d (r558s idx: %d)\n", slot, r558sSlot);
-    r558s_setLED(1, 1);
+uint8_t enrollR503(uint8_t slot, String name, String code) {
+    pixels.setPixelColor(0, pixels.Color(255, 165, 0));
+    pixels.show();
 
-    uint8_t params[] = {
-        (uint8_t)(r558sSlot >> 8),
-        (uint8_t)(r558sSlot & 0xFF),
-        0x04,
-        0x00,
-        0x00
-    };
-    r558s_sendCommand(0x31, params, 5);
-
-    uint8_t buf[32];
-    while (true) {
-        if (r558s_readPacket(buf, sizeof(buf), 20000)) {
-            uint8_t confCode = buf[9];
-            uint8_t step     = buf[10];
-            Serial.printf("[R558S] step=0x%02X confCode=0x%02X\n", step, confCode);
-
-            if (confCode != 0x00) {
-                if (confCode == 0x27) Serial.println("[R558S] Lỗi: ID này đã có vân tay!");
-                else Serial.printf("[R558S] Lỗi enroll: 0x%02X\n", confCode);
-                r558s_setLED(3, 4); delay(1000); r558s_setLED(4, 0);
-                pixels.clear(); pixels.show();
-                return 0xFF;
-            }
-
-            if      (step == 0x01) Serial.println("[R558S] Đã chụp ảnh...");
-            else if (step == 0x02) Serial.println("[R558S] Trích xuất đặc trưng OK");
-            else if (step == 0x03) {
-                Serial.println("[R558S] Nhấc tay ra rồi đặt lại...");
-                r558s_setLED(3, 1); delay(100); r558s_setLED(1, 1);
-            }
-            else if (step == 0x06) {
-                Serial.println("[R558S] Vân tay đã lưu!");
-                r558s_setLED(3, 2); delay(1000); r558s_setLED(4, 0);
-                syncAfterEnrollRS(slot, name, code);
-                pixels.clear(); pixels.show();
-                return slot;
-            }
-        } else {
-            Serial.println("[R558S] Enroll timeout!");
-            r558s_setLED(4, 0);
-            pixels.clear(); pixels.show();
-            return FINGERPRINT_TIMEOUT;
-        }
+    Serial.printf("[R503] Enrolling slot #%d | Code: %s\n", slot, code.c_str());
+    
+    if (!r503.enroll(slot)) {
+        Serial.println("[R503] Enroll thất bại");
+        pixels.clear(); pixels.show();
+        return FINGERPRINT_ENROLLMISMATCH;
     }
+
+    syncAfterEnrollRS(slot, name, code);
+    pixels.clear(); pixels.show();
+    return slot;
 }
 
 // =========================================
 // ENROLL CHUNG
-// sensorType: 0 = AS608, 1 = R558S
+// sensorType: 0 = AS608, 1 = R503
 // =========================================
 uint8_t enrollFinger(String name, String code, uint8_t sensorType) {
     pixels.setPixelColor(0, pixels.Color(255, 255, 0));
     pixels.show();
 
-    if (sensorType == 0) {
+    if (sensorType == 0) { // AS608
         int slot = findFreeSlotAS();
-        if (slot == -1) { Serial.println("[AS608] Cảm biến đã đầy"); return FINGERPRINT_BADLOCATION; }
+        if (slot == -1) return FINGERPRINT_BADLOCATION;
         fingerAS.deleteModel(slot);
-        Serial.printf("[AS608] Enrolling slot #%d | Name: %s | Code: %s\n", slot, name.c_str(), code.c_str());
         return enrollAS608((uint8_t)slot, name, code);
-    } else {
+    } else { // R503
         int slot = findFreeSlotRS();
-        if (slot == -1) { Serial.println("[R558S] Cảm biến đã đầy"); return FINGERPRINT_BADLOCATION; }
-        Serial.printf("[R558S] Enrolling slot #%d | Name: %s | Code: %s\n", slot, name.c_str(), code.c_str());
-        return enrollR558S((uint8_t)slot, name, code);
+        if (slot == -1) return FINGERPRINT_BADLOCATION;
+        // KHÔNG dùng fingerRS.deleteModel nữa
+        return enrollR503((uint8_t)slot, name, code);
     }
 }
 
 // =========================================
-// DOWNLOAD TEMPLATE — AS608
+// DOWNLOAD TEMPLATE — AS608 (512 bytes)
 // =========================================
 uint8_t manualDownloadModelAS(uint8_t* dest) {
     uint8_t p = fingerAS.getModel();
@@ -420,7 +283,7 @@ uint8_t manualDownloadModelAS(uint8_t* dest) {
         for (int i = 0; i < 4; i++) {
             t = millis();
             while (!fpSerialAS.available() && millis() - t < 200);
-            fpSerialAS.read(); // address bytes
+            fpSerialAS.read();
         }
         t = millis();
         while (!fpSerialAS.available() && millis() - t < 200);
@@ -434,75 +297,29 @@ uint8_t manualDownloadModelAS(uint8_t* dest) {
             while (!fpSerialAS.available() && millis() - t < 200);
             dest[bytesRead++] = fpSerialAS.read();
         }
-        // checksum (2 bytes)
         for (int i = 0; i < 2; i++) {
             t = millis();
             while (!fpSerialAS.available() && millis() - t < 200);
             fpSerialAS.read();
         }
-        if (pid == 0x08) break; // end packet
+        if (pid == 0x08) break;
     }
     return FINGERPRINT_OK;
 }
 
 // =========================================
-// DOWNLOAD TEMPLATE — R558S
+// DOWNLOAD TEMPLATE — R503
 // =========================================
-// =========================================
-// DOWNLOAD TEMPLATE R558S — ĐÃ SỬA
-// =========================================
-uint8_t manualDownloadModelRS(uint16_t slot, uint8_t* dest) {
-    uint16_t r558sSlot = slot > 0 ? slot - 1 : 0;
-    Serial.printf("[R558S] Download template slot %d\n", slot);
-
-    // LoadChar trước
-    uint8_t loadParams[] = {0x01, (uint8_t)(r558sSlot >> 8), (uint8_t)(r558sSlot & 0xFF)};
-    r558s_sendCommand(0x07, loadParams, 3);
-
-    uint8_t ack[32] = {0};
-    if (!r558s_readPacket(ack, sizeof(ack), 2500) || ack[9] != 0x00) {
-        Serial.println("[R558S] LoadChar thất bại");
-        return 0xFF;
+uint8_t manualDownloadModelRS(uint8_t* dest) {
+    uint16_t len = 0;
+    if (r503.downloadTemplate(0, dest, &len)) {  // ID tạm thời
+        return FINGERPRINT_OK;
     }
-
-    delay(300);
-
-    // UpChar (0x08)
-    uint8_t upParams[] = {0x01};   // buffer number 1
-    r558s_sendCommand(0x08, upParams, 1);
-
-    if (!r558s_readPacket(ack, sizeof(ack), 4000) || ack[9] != 0x00) {
-        Serial.printf("[R558S] UpChar thất bại: 0x%02X\n", ack[9]);
-        return 0xFF;
-    }
-
-    Serial.println("[R558S] UpChar OK → Đang nhận dữ liệu...");
-
-    // Nhận các packet dữ liệu
-    size_t total = 0;
-    while (total < 1024) {
-        uint8_t pkt[300] = {0};
-        if (!r558s_readPacket(pkt, sizeof(pkt), 3500)) {
-            Serial.println("[R558S] Timeout khi nhận data packet");
-            break;
-        }
-
-        uint16_t pktLen = ((uint16_t)pkt[7] << 8) | pkt[8];
-        uint16_t dataLen = pktLen - 2;
-
-        for (uint16_t i = 0; i < dataLen && total < 1024; i++) {
-            dest[total++] = pkt[9 + i];
-        }
-
-        if (pkt[6] == 0x08) break;   // packet cuối
-    }
-
-    Serial.printf("[R558S] Đọc template xong: %d bytes\n", total);
-    return (total >= 512) ? FINGERPRINT_OK : 0xFF;
+    return FINGERPRINT_PACKETRECIEVEERR;
 }
 
 // =========================================
-// UPLOAD TEMPLATE VÀO AS608
+// UPLOAD TEMPLATE VÀO AS608 (512 bytes)
 // =========================================
 uint8_t uploadFingerprintTemplateAS(uint16_t slot, String base64Data) {
     uint8_t templateBuffer[512] = {0};
@@ -517,7 +334,6 @@ uint8_t uploadFingerprintTemplateAS(uint16_t slot, String base64Data) {
         return 0xFF;
     }
 
-    // Gửi data packets (64 bytes mỗi packet theo AS608 spec)
     const uint16_t PKT_DATA = 64;
     int totalPkts = (len + PKT_DATA - 1) / PKT_DATA;
 
@@ -547,7 +363,6 @@ uint8_t uploadFingerprintTemplateAS(uint16_t slot, String base64Data) {
         delay(5);
     }
 
-    // Store vào slot
     uint8_t p = fingerAS.storeModel(slot);
     if (p != FINGERPRINT_OK) {
         Serial.printf("[AS608] StoreModel thất bại: 0x%02X\n", p);
@@ -559,145 +374,122 @@ uint8_t uploadFingerprintTemplateAS(uint16_t slot, String base64Data) {
 }
 
 // =========================================
-// UPLOAD TEMPLATE VÀO R558S
+// UPLOAD TEMPLATE R503 — FINAL
 // =========================================
-uint8_t uploadFingerprintTemplateRS(uint8_t slot, String base64Template) {
-    uint16_t r558sSlot = slot > 0 ? slot - 1 : 0;
+uint8_t uploadFingerprintTemplateRS(uint16_t slot, String base64Data) {
+    uint8_t templateBuffer[1024] = {0};
+    
+    int len = base64Decode(base64Data, templateBuffer, 1024);
+    Serial.printf("[R503] Decoded: %d bytes\n", len);
 
-    Serial.printf("[R558S] Nạp Template từ Server vào slot %d\n", slot);
-
-    const size_t MAX_TEMPLATE = 1024;
-    uint8_t* templateData = (uint8_t*)malloc(MAX_TEMPLATE);
-    if (!templateData) return 0xFF;
-
-    size_t len = base64Decode(base64Template, templateData, MAX_TEMPLATE);
-
-    if (len < 300) {
-        Serial.printf("[R558S] Template không hợp lệ (len=%d)\n", (int)len);
-        free(templateData);
+    if (len != 768) {
+        Serial.println("[R503] Template sai kích thước!");
         return 0xFF;
     }
 
-    r558s_setLED(3, 1);
+    Serial.printf("[R503] Đang tiến hành nạp vân tay vào slot chỉ định = %d\n", slot);
 
-    // DownChar: gửi dữ liệu vào buffer 1 của cảm biến
-    uint8_t downParams[] = {0x01};
-    r558s_sendCommand(0x09, downParams, 1);
-
-    uint8_t buf[32] = {0};
-    if (!r558s_readPacket(buf, sizeof(buf), 2000) || buf[9] != 0x00) {
-        Serial.println("[R558S] DownChar ACK thất bại");
-        free(templateData);
-        r558s_setLED(4, 0);
-        return 0xFF;
-    }
-
-    // Gửi data packets (32 bytes/packet)
-    const uint16_t PKT_SIZE = 32;
-    int totalPkts = (len + PKT_SIZE - 1) / PKT_SIZE;
-
-    for (int i = 0; i < totalPkts; i++) {
-        uint8_t pid = (i == totalPkts - 1) ? 0x08 : 0x02;
-        uint16_t dLen = (i == totalPkts - 1 && len % PKT_SIZE != 0) ? (len % PKT_SIZE) : PKT_SIZE;
-
-        uint8_t pkt[64];
-        int idx = 0;
-        pkt[idx++] = 0xEF; pkt[idx++] = 0x01;
-        pkt[idx++] = 0xFF; pkt[idx++] = 0xFF; pkt[idx++] = 0xFF; pkt[idx++] = 0xFF;
-        pkt[idx++] = pid;
-
-        uint16_t plen = dLen + 2;
-        pkt[idx++] = plen >> 8;
-        pkt[idx++] = plen & 0xFF;
-
-        uint16_t sum = pid + (plen >> 8) + (plen & 0xFF);
-
-        for (uint16_t j = 0; j < dLen; j++) {
-            uint8_t b = templateData[i * PKT_SIZE + j];
-            pkt[idx++] = b;
-            sum += b;
+    // Thử upload nhiều lần 
+    for (int i = 1; i <= 3; i++) {
+        Serial.printf("[R503] Attempt %d...\n", i);
+        delay(500);
+        
+        // ✅ FIX: Lưu trực tiếp vào biến `slot` nhận từ hàm gọi Sync
+        if (r503.uploadTemplate(slot, templateBuffer, 768)) {
+            Serial.printf("[R503] ✅ THÀNH CÔNG slot #%d\n", slot);
+            return FINGERPRINT_OK;
         }
-        pkt[idx++] = sum >> 8;
-        pkt[idx++] = sum & 0xFF;
-
-        fpSerialRS.write(pkt, idx);
-        delay(8);
     }
 
-    free(templateData);
-
-    // Store vào slot
-    uint8_t storeParams[] = {0x01, (uint8_t)(r558sSlot >> 8), (uint8_t)(r558sSlot & 0xFF)};
-    r558s_sendCommand(0x06, storeParams, 3);
-
-    if (!r558s_readPacket(buf, sizeof(buf), 3000) || buf[9] != 0x00) {
-        Serial.println("[R558S] Store Template thất bại");
-        r558s_setLED(4, 0);
-        return 0xFF;
-    }
-
-    Serial.printf("[R558S] Nạp Template thành công slot %d\n", slot);
-    r558s_setLED(2, 2);
-    delay(800);
-    r558s_setLED(4, 0);
-    return FINGERPRINT_OK;
+    Serial.printf("[R503] ❌ Không thể upload template vào slot %d\n", slot);
+    return 0xFF;
 }
 
 // =========================================
 // CHECK FINGERPRINT — AS608
 // =========================================
 void checkAS608() {
+    // Giả sử hàm kiểm tra nhanh hoặc đọc ảnh của AS608 nằm ở đây
     uint8_t p = fingerAS.getImage();
     if (p != FINGERPRINT_OK) return;
 
     p = fingerAS.image2Tz();
     if (p != FINGERPRINT_OK) return;
 
+    // Thực hiện tìm kiếm nhanh trong thư viện
     p = fingerAS.fingerFastSearch();
+    
     if (p == FINGERPRINT_OK) {
-        uint8_t slot = fingerAS.fingerID;
-        String name  = prefs.getString(("as_user_" + String(slot)).c_str(), "Unknown");
-        String code  = prefs.getString(("as_code_" + String(slot)).c_str(), "");
-        Serial.printf("[AS608] Match! Slot: %d | Code: %s | Name: %s | Confidence: %d\n",
-                      slot, code.c_str(), name.c_str(), fingerAS.confidence);
-        logAccessAS(slot, "", name, true, code);
-        openLock();
-    } else {
-        Serial.println("[AS608] No match");
+        //KIỂM TRA NGƯỠNG ĐỘ TIN CẬY (CONFIDENCE > 100)
+        if (fingerAS.confidence > 100) {
+            uint16_t matchedID = fingerAS.fingerID;
+            uint16_t score = fingerAS.confidence;
+
+            // Lấy thông tin User từ Preferences nâng cấp bảo mật
+            String name = prefs.getString(("as_user_" + String(matchedID)).c_str(), "Unknown");
+            String code = prefs.getString(("as_code_" + String(matchedID)).c_str(), "");
+
+            Serial.printf("[AS608] ✅ Match! Slot: %d | Code: %s | Name: %s | Confidence: %d\n",
+                          matchedID, code.c_str(), name.c_str(), score);
+
+            logAccessAS(matchedID, "", name, true, code);
+            openLock(); // Kích hoạt mở khóa
+        } else {
+            // Trường hợp vân tay có khớp nhưng điểm số quá thấp (chạm không đều, mờ...)
+            Serial.printf("[AS608] ⚠️ Khớp vân tay nhưng độ tin cậy quá thấp (Confidence: %d <= 100) -> TỪ CHỐI\n", fingerAS.confidence);
+            logAccessAS(0, "", "Unknown", false, "");
+            denyAccess(); // Báo lỗi, không mở cửa
+        }
+    } else if (p == FINGERPRINT_NOTFOUND) {
+        Serial.println("[AS608] ❌ Vân tay hoàn toàn không khớp");
         logAccessAS(0, "", "Unknown", false, "");
         denyAccess();
     }
 }
 
 // =========================================
-// CHECK FINGERPRINT — R558S
+// CHECK FINGERPRINT — R503
 // =========================================
-void checkR558S() {
-    uint8_t params[] = {0x03, 0xFF, 0xFF, 0x00, 0x00};
-    r558s_sendCommand(0x32, params, 5);
+void checkR503() {
+    // Bước 1: Poll nhanh — có ngón tay không? (300ms, không blocking)
+    if (!r503.isTouched()) return;
 
-    uint8_t buf[32];
-    if (!r558s_readPacket(buf, sizeof(buf), 2000)) return;
+    r503.setLED(0x02, 0x03);
 
-    uint8_t confCode = buf[9];
-    uint8_t step     = buf[10];
+    // Bước 2: Có ngón tay → chạy nhận diện
+    uint16_t matchedID = 0;
+    uint16_t score = 0;
 
-    if (confCode == 0x00 && step == 0x05) {
-        uint16_t matchedSlot = (buf[11] << 8) | buf[12];
-        uint16_t score       = (buf[13] << 8) | buf[14];
-        uint8_t flashSlot    = (uint8_t)(matchedSlot + 1);
-        String name = prefs.getString(("rs_user_" + String(flashSlot)).c_str(), "Unknown");
-        String code = prefs.getString(("rs_code_" + String(flashSlot)).c_str(), "");
-        Serial.printf("[R558S] Match! Slot: %d | Code: %s | Name: %s | Score: %d\n",
-                      flashSlot, code.c_str(), name.c_str(), score);
-        logAccessRS(flashSlot, "", name, true, code);
-        openLock();
-    } else if (confCode == 0x09 || confCode == 0x24) {
-        Serial.println("[R558S] No match");
-        logAccessRS(0, "", "Unknown", false, "");
-        denyAccess();
+    if (r503.verify(&matchedID, &score)) {
+        // KIỂM TRA NGƯỠNG ĐIỂM SỐ (SCORE THRESHOLD > 100)
+        if (score > 100) {
+            String name = prefs.getString(("rs_user_" + String(matchedID)).c_str(), "Unknown");
+            String code = prefs.getString(("rs_code_" + String(matchedID)).c_str(), "");
+
+            Serial.printf("[R503] ✅ Match! Slot: %d | Code: %s | Name: %s | Score: %d\n",
+                          matchedID, code.c_str(), name.c_str(), score);
+            
+            r503.setLED(0x03, 0x04);
+            logAccessRS(matchedID, "", name, true, code);
+            openLock(); // Mở cửa
+            r503.setLED(0x01, 0x07);
+        } else {
+            // Khớp vân tay nhưng điểm số quá thấp, từ chối mở cửa
+            Serial.printf("[R503] ⚠️ Khớp vân tay nhưng điểm quá thấp (Score: %d <= 100) -> TỪ CHỐI\n", score);
+            r503.setLED(0x02, 0x01);
+            logAccessRS(0, "", "Unknown", false, "");
+            denyAccess(); // Không mở cửa, báo đèn đỏ
+            r503.setLED(0x01, 0x07);
+        }
+    } else {
+        if (r503.getLastError() == 0x09) {
+            Serial.println("[R503] ❌ Vân tay hoàn toàn không khớp");
+            r503.setLED(0x02, 0x01);
+            logAccessRS(0, "", "Unknown", false, "");
+            denyAccess(); // Không mở cửa, báo đèn đỏ
+            r503.setLED(0x01, 0x07);
+        }
     }
-    // step 0x01 = đang chờ ảnh → bỏ qua
 }
 
 // =========================================
@@ -705,17 +497,17 @@ void checkR558S() {
 // =========================================
 void checkFingerprint() {
     checkAS608();
-    checkR558S();
+    checkR503();
 }
 
 // =========================================
 // SYNC TOÀN BỘ TỪ SERVER
-// FIX: R558S branch đọc "fingerprint" thay vì "template"
+// sensorType: 0 = AS608, 1 = R503
 // =========================================
 void syncFromServer(uint8_t sensorType) {
     if (WiFi.status() != WL_CONNECTED) { Serial.println("syncFromServer: không có WiFi"); return; }
 
-    const char* label = (sensorType == 0) ? "AS608" : "R558S";
+    const char* label = (sensorType == 0) ? "AS608" : "R503";
     Serial.printf("=== BẮT ĐẦU SYNC TỪ SERVER [%s] ===\n", label);
     pixels.setPixelColor(0, pixels.Color(128, 0, 128));
     pixels.show();
@@ -743,12 +535,11 @@ void syncFromServer(uint8_t sensorType) {
     int successCount = 0;
 
     for (JsonObject user : users) {
-        String ucode   = user["code"].as<String>();
-        String uname   = user["name"].as<String>();
-        // FIX: cả 2 sensor đều dùng key "fingerprint" — nhất quán với DB schema
-        String tmplB64 = user["fingerprint"].as<String>();
+        String ucode  = user["code"].as<String>();
+        String uname  = user["name"].as<String>();
+        String dataB64 = user["fingerprint"].as<String>();
 
-        if (tmplB64.length() < 100) {
+        if (dataB64.length() < 100) {
             Serial.printf("[%s] code=%s: không có template\n", label, ucode.c_str());
             continue;
         }
@@ -756,44 +547,41 @@ void syncFromServer(uint8_t sensorType) {
         if (sensorType == 0) {
             int slot = prefs.getInt(("as_slot_" + ucode).c_str(), -1);
             if (slot == -1) slot = findFreeSlotAS();
-            if (slot == -1) { Serial.println("[AS608] Cảm biến đầy, dừng sync"); break; }
+            if (slot == -1) break;
 
-            Serial.printf("[AS608] Nạp code=%s (%s) → slot #%d...\n", ucode.c_str(), uname.c_str(), slot);
-            uint8_t result = uploadFingerprintTemplateAS((uint16_t)slot, tmplB64);
+            Serial.printf("[AS608] Nạp template code=%s → slot #%d...\n", ucode.c_str(), slot);
+            uint8_t result = uploadFingerprintTemplateAS((uint16_t)slot, dataB64);
             if (result == FINGERPRINT_OK) {
                 prefs.putString(("as_user_" + String(slot)).c_str(), uname);
                 prefs.putString(("as_code_" + String(slot)).c_str(), ucode);
                 prefs.putInt(("as_slot_" + ucode).c_str(), slot);
                 successCount++;
-            } else {
-                Serial.printf("[AS608] slot #%d THẤT BẠI: %d\n", slot, result);
             }
         } else {
             int slot = prefs.getInt(("rs_slot_" + ucode).c_str(), -1);
             if (slot == -1) slot = findFreeSlotRS();
-            if (slot == -1) { Serial.println("[R558S] Cảm biến đầy, dừng sync"); break; }
+            if (slot == -1) break;
 
-            Serial.printf("[R558S] Nạp code=%s (%s) → slot #%d...\n", ucode.c_str(), uname.c_str(), slot);
-            uint8_t result = uploadFingerprintTemplateRS(slot, tmplB64);
+            Serial.printf("[R503] Nạp template code=%s → slot #%d...\n", ucode.c_str(), slot);
+            uint8_t result = uploadFingerprintTemplateRS((uint16_t)slot, dataB64);
             if (result == FINGERPRINT_OK) {
                 prefs.putString(("rs_user_" + String(slot)).c_str(), uname);
                 prefs.putString(("rs_code_" + String(slot)).c_str(), ucode);
                 prefs.putInt(("rs_slot_" + ucode).c_str(), slot);
                 successCount++;
             } else {
-                Serial.printf("[R558S] Nạp template thất bại code=%s\n", ucode.c_str());
+                Serial.printf("[R503] Nạp template thất bại slot=%d (code=%s)\n", slot, ucode.c_str());
             }
         }
-        delay(50);
+        delay(100);
     }
 
-    Serial.printf("=== SYNC XONG [%s]: %d/%d user ===\n", label, successCount, (int)users.size());
+    Serial.printf("=== SYNC XONG [%s]: %d user ===\n", label, successCount);
     pixels.clear(); pixels.show();
 }
 
 // =========================================
 // SYNC 1 USER TỪ SERVER
-// FIX: R558S branch đọc "fingerprint" thay vì "template"
 // =========================================
 void syncUserFromServer(String code, uint8_t sensorType) {
     if (WiFi.status() != WL_CONNECTED) {
@@ -801,7 +589,7 @@ void syncUserFromServer(String code, uint8_t sensorType) {
         return;
     }
 
-    const char* label = (sensorType == 0) ? "AS608" : "R558S";
+    const char* label = (sensorType == 0) ? "AS608" : "R503";
     Serial.printf("=== SYNC USER code=%s [%s] ===\n", code.c_str(), label);
 
     HTTPClient http;
@@ -822,82 +610,83 @@ void syncUserFromServer(String code, uint8_t sensorType) {
         return;
     }
 
-    bool found = false;
-
     for (JsonObject user : doc.as<JsonArray>()) {
         String ucode = user["code"].as<String>();
-        String uname = user["name"].as<String>();
-
         if (ucode != code) continue;
-        found = true;
 
-        // FIX: cả AS608 lẫn R558S đều đọc "fingerprint"
-        String tmplB64 = user["fingerprint"].as<String>();
+        String dataB64 = user["fingerprint"].as<String>();
+        String uname   = user["name"].as<String>();
 
-        if (tmplB64.length() < 100) {
-            Serial.printf("[%s] User %s không có fingerprint template\n", label, ucode.c_str());
-            break;
+        Serial.printf("[%s] code=%s | data_length = %d\n", label, ucode.c_str(), dataB64.length());
+
+        if (dataB64.length() < 100) {
+            Serial.printf("[%s] User %s không có template\n", label, ucode.c_str());
+            return;
         }
 
         if (sensorType == 0) {
             int slot = prefs.getInt(("as_slot_" + code).c_str(), -1);
             if (slot == -1) slot = findFreeSlotAS();
-            if (slot == -1) { Serial.println("[AS608] Cảm biến đầy"); break; }
+            if (slot == -1) { Serial.println("[AS608] Cảm biến đầy"); return; }
 
-            Serial.printf("[AS608] Nạp code=%s → slot #%d...\n", code.c_str(), slot);
-            uint8_t result = uploadFingerprintTemplateAS((uint16_t)slot, tmplB64);
-
+            uint8_t result = uploadFingerprintTemplateAS((uint16_t)slot, dataB64);
             if (result == FINGERPRINT_OK) {
                 prefs.putString(("as_user_" + String(slot)).c_str(), uname);
                 prefs.putString(("as_code_" + String(slot)).c_str(), ucode);
                 prefs.putInt(("as_slot_" + ucode).c_str(), slot);
                 Serial.printf("[AS608] slot #%d OK\n", slot);
-            } else {
-                Serial.printf("[AS608] slot #%d THẤT BẠI: %d\n", slot, result);
             }
         } else {
             int slot = prefs.getInt(("rs_slot_" + ucode).c_str(), -1);
             if (slot == -1) slot = findFreeSlotRS();
-            if (slot == -1) { Serial.println("[R558S] Cảm biến đầy"); break; }
+            if (slot == -1) { Serial.println("[R503] Cảm biến đầy"); return; }
 
-            Serial.printf("[R558S] Nạp Template code=%s → slot #%d...\n", ucode.c_str(), slot);
-            uint8_t result = uploadFingerprintTemplateRS(slot, tmplB64);
-
+            uint8_t result = uploadFingerprintTemplateRS((uint16_t)slot, dataB64);
             if (result == FINGERPRINT_OK) {
                 prefs.putString(("rs_user_" + String(slot)).c_str(), uname);
                 prefs.putString(("rs_code_" + String(slot)).c_str(), ucode);
                 prefs.putInt(("rs_slot_" + ucode).c_str(), slot);
-                Serial.printf("[R558S] slot #%d OK\n", slot);
+                Serial.printf("[R503] slot #%d SYNC THÀNH CÔNG\n", slot);
             } else {
-                Serial.printf("[R558S] Nạp Template thất bại code=%s\n", ucode.c_str());
+                Serial.printf("[R503] Nạp template thất bại slot=%d (code=%s)\n", slot, ucode.c_str());
             }
         }
-        break;
+        return;
     }
 
-    if (!found) {
-        Serial.printf("syncUser [%s]: không tìm thấy code=%s\n", label, code.c_str());
-    }
+    Serial.printf("syncUser [%s]: không tìm thấy code=%s\n", label, code.c_str());
 }
 
 // =========================================
-// XÓA TOÀN BỘ R558S
-// FIX: dùng mảng rỗng thay vì nullptr
+// XÓA TOÀN BỘ R503
 // =========================================
-void emptyR558S() {
-    uint8_t emptyParams[1] = {0};  // FIX: không truyền nullptr
-    r558s_sendCommand(0x0D, emptyParams, 0);
-
-    uint8_t buf[32];
-    if (r558s_readPacket(buf, sizeof(buf), 3000)) {
-        if (buf[9] == 0x00) {
-            Serial.println("[R558S] THÀNH CÔNG: Đã xóa toàn bộ vân tay!");
-        } else {
-            Serial.printf("[R558S] LỖI: Không thể xóa vân tay, mã lỗi: 0x%02X\n", buf[9]);
-        }
-    } else {
-        Serial.println("[R558S] LỖI: Timeout khi chờ phản hồi xóa vân tay!");
+void emptyDatabaseRS() {
+    Serial.println("[R503] Đang xóa toàn bộ thư viện vân tay...");
+    if (!r503.emptyDatabase()) {
+        Serial.println("[R503] ❌ Xóa database cảm biến thất bại");
+        return;
     }
+    Serial.println("[R503] ✅ ĐÃ XÓA SẠCH DATABASE cảm biến!");
+
+    // Xóa toàn bộ Preferences liên quan R503 để đồng bộ với sensor
+    for (int slot = 0; slot <= 199; slot++) {
+        String nameKey = "rs_user_" + String(slot);
+        String codeKey = "rs_code_" + String(slot);
+        if (prefs.isKey(nameKey.c_str())) {
+            String code = prefs.getString(codeKey.c_str(), "");
+            prefs.remove(nameKey.c_str());
+            prefs.remove(codeKey.c_str());
+            if (code.length() > 0) prefs.remove(("rs_slot_" + code).c_str());
+        }
+    }
+    Serial.println("[R503] ✅ ĐÃ XÓA SẠCH Preferences!");
+}
+
+// =========================================
+// XÓA 1 TEMPLATE R503
+// =========================================
+bool deleteR503Template(uint16_t slot) {
+    return r503.deleteTemplate(slot);
 }
 
 // =========================================
@@ -908,35 +697,29 @@ void emptyDatabaseAS() {
     uint8_t result = fingerAS.emptyDatabase();
 
     if (result == FINGERPRINT_OK) {
-        Serial.println("[AS608] THÀNH CÔNG: Đã xóa sạch mọi dấu vân tay!");
+        Serial.println("[AS608] THÀNH CÔNG: Đã xóa sạch mọi dấu vân tay trên cảm biến!");
     } else if (result == FINGERPRINT_PACKETRECIEVEERR) {
         Serial.println("[AS608] LỖI: Lỗi giao tiếp UART!");
+        return;
     } else if (result == FINGERPRINT_DBCLEARFAIL) {
         Serial.println("[AS608] LỖI: Không thể xóa dữ liệu trên cảm biến!");
+        return;
     } else {
         Serial.printf("[AS608] LỖI không xác định: 0x%02X\n", result);
+        return;
     }
-}
 
-// =========================================
-// ĐỌC SYSTEM PARAMETER R558S
-// =========================================
-void r558s_readSysPara() {
-    Serial.println("[R558S] Đang đọc System Parameter...");
-
-    uint8_t cmd[] = {0xEF,0x01,0xFF,0xFF,0xFF,0xFF, 0x01,0x00,0x03,0x0F, 0x00,0x13};
-    while (fpSerialRS.available()) fpSerialRS.read();
-    fpSerialRS.write(cmd, sizeof(cmd));
-
-    uint8_t buf[64] = {0};
-    if (r558s_readPacket(buf, sizeof(buf), 2000)) {
-        if (buf[9] == 0x00) {
-            uint8_t packetSizeCode = buf[17];
-            Serial.printf("[R558S] Packet Size code = %d (0=32B, 1=64B, 2=128B, 3=256B)\n", packetSizeCode);
-        } else {
-            Serial.printf("[R558S] ReadSysPara FAIL: 0x%02X\n", buf[9]);
+    // Xóa toàn bộ Preferences liên quan AS608 để đồng bộ với sensor
+    for (int slot = 1; slot <= 127; slot++) {
+        String nameKey = "as_user_" + String(slot);
+        String codeKey = "as_code_" + String(slot);
+        if (prefs.isKey(nameKey.c_str())) {
+            String code = prefs.getString(codeKey.c_str(), "");
+            prefs.remove(nameKey.c_str());
+            prefs.remove(codeKey.c_str());
+            prefs.remove("as_slot_5397");
+            if (code.length() > 0) prefs.remove(("as_slot_" + code).c_str());
         }
-    } else {
-        Serial.println("[R558S] ReadSysPara timeout");
     }
+    Serial.println("[AS608] ✅ ĐÃ XÓA SẠCH Preferences!");
 }

@@ -6,7 +6,7 @@
 
 // =========================================
 // HELPER — Đẩy 1 log entry lên server
-// sensor: "AS608" | "R558S" | "RFID" | "Remote"
+// sensor: "AS608" | "R503" | "RFID" | "Remote"
 // =========================================
 static void pushLogToServer(int slot, const String& uid, const String& name,
                              const String& code, bool granted, const String& sensor) {
@@ -48,7 +48,7 @@ void logAccessAS(int id, const String& uid, const String& name,
 }
 
 // =========================================
-// R558S
+// R503
 // =========================================
 AccessLog logRS[20];
 int logIndexRS = 0;
@@ -57,5 +57,5 @@ void logAccessRS(int id, const String& uid, const String& name,
                  bool granted, const String& code) {
     logRS[logIndexRS % 20] = { id, uid, name, granted, time(nullptr) };
     logIndexRS++;
-    pushLogToServer(id, uid, name, code, granted, "R558S");
+    pushLogToServer(id, uid, name, code, granted, "R503");
 }

@@ -99,6 +99,12 @@ input::placeholder { color: rgba(255,255,255,0.3); }
 .empty { text-align: center; padding: 30px; opacity: .4; font-size: 13px; }
 .note  { font-size: 11px; opacity: .45; margin-top: 6px; line-height: 1.6; }
 
+/* Template status indicators */
+.fp-row { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+.fp-chip { font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 500; }
+.fp-ok  { background: rgba(34,197,94,.15); color: #4ade80; border: 1px solid rgba(34,197,94,.3); }
+.fp-no  { background: rgba(239,68,68,.1);  color: #f87171; border: 1px solid rgba(239,68,68,.2); }
+
 #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(60px); padding: 10px 20px; border-radius: 10px; font-size: 13px; z-index: 999; transition: transform .3s, opacity .3s; opacity: 0; pointer-events: none; }
 #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 </style>
@@ -106,13 +112,13 @@ input::placeholder { color: rgba(255,255,255,0.3); }
 <body>
 
 <div class="nav">
-  <button onclick="showTab('home')" class="active">🏠 Home</button>
-  <button onclick="showTab('as608')">👁 AS608</button>
-  <button onclick="showTab('r558s')">👁 R558S</button>
-  <button onclick="showTab('rfid')">📡 RFID</button>
-  <button onclick="showTab('log')">📜 Log</button>
-  <button onclick="showTab('db')">☁️ Server</button>
-  <button onclick="showTab('settings')">⚙️ Cài đặt</button>
+  <button onclick="showTab('home',this)" class="active">🏠 Home</button>
+  <button onclick="showTab('as608',this)">👁 AS608</button>
+  <button onclick="showTab('r503',this)">👁 R503</button>
+  <button onclick="showTab('rfid',this)">📡 RFID</button>
+  <button onclick="showTab('log',this)">📜 Log</button>
+  <button onclick="showTab('db',this)">☁️ Server</button>
+  <button onclick="showTab('settings',this)">⚙️ Cài đặt</button>
 </div>
 
 <!-- HOME -->
@@ -124,7 +130,7 @@ input::placeholder { color: rgba(255,255,255,0.3); }
     </div>
     <div class="stat-card">
       <div class="stat-num" id="stat-rs" style="color:#8b5cf6">—</div>
-      <div class="stat-lbl">R558S users</div>
+      <div class="stat-lbl">R503 users</div>
     </div>
     <div class="stat-card">
       <div class="stat-num" id="stat-rfid" style="color:#22c55e">—</div>
@@ -145,7 +151,7 @@ input::placeholder { color: rgba(255,255,255,0.3); }
       <p class="note">Kéo toàn bộ vân tay từ database về thiết bị. Chọn cảm biến cần sync.</p>
       <div class="stab-row" style="margin-top:10px">
         <button class="stab active" id="syncTab0" onclick="setSyncSensor(0)">AS608</button>
-        <button class="stab" id="syncTab1" onclick="setSyncSensor(1)">R558S</button>
+        <button class="stab" id="syncTab1" onclick="setSyncSensor(1)">R503</button>
       </div>
       <button class="btn enroll" id="syncBtn" style="width:100%" onclick="syncFromDB()">↓ SYNC TẤT CẢ</button>
       <div class="prog-wrap"><div class="prog-bar" id="syncProgress"></div></div>
@@ -181,11 +187,11 @@ input::placeholder { color: rgba(255,255,255,0.3); }
   </div>
 </div>
 
-<!-- R558S -->
-<div id="r558s" class="tab">
+<!-- R503 -->
+<div id="r503" class="tab">
   <div class="grid2">
     <div class="card">
-      <h2>➕ Enroll vân tay R558S</h2>
+      <h2>➕ Enroll vân tay R503</h2>
       <input type="text" id="rs_code" placeholder="Mã số (VD: SV001)">
       <input type="text" id="rs_name" placeholder="Tên người dùng">
       <button class="btn purple" onclick="enrollRS()">+ ENROLL</button>
@@ -201,10 +207,10 @@ input::placeholder { color: rgba(255,255,255,0.3); }
   </div>
   <div class="card">
     <h2>
-      👤 Danh sách user R558S
-      <button class="btn ghost" style="padding:5px 10px;font-size:11px;margin-left:auto" onclick="loadR558SUsers()">↻ Làm mới</button>
+      👤 Danh sách user R503
+      <button class="btn ghost" style="padding:5px 10px;font-size:11px;margin-left:auto" onclick="loadR503Users()">↻ Làm mới</button>
     </h2>
-    <div id="r558s_list"><div class="empty">Đang tải...</div></div>
+    <div id="r503_list"><div class="empty">Đang tải...</div></div>
   </div>
 </div>
 
@@ -232,10 +238,10 @@ input::placeholder { color: rgba(255,255,255,0.3); }
   <div class="card">
     <h2>📜 Lịch sử truy cập</h2>
     <div class="filter-row">
-      <button class="ftab active" onclick="setLogFilter('as608')">AS608</button>
-      <button class="ftab" onclick="setLogFilter('r558s')">R558S</button>
-      <button class="ftab" onclick="setLogFilter('rfid')">RFID</button>
-      <button class="ftab" onclick="setLogFilter('remote')">Remote</button>
+      <button class="ftab active" onclick="setLogFilter('as608',this)">AS608</button>
+      <button class="ftab" onclick="setLogFilter('r503',this)">R503</button>
+      <button class="ftab" onclick="setLogFilter('rfid',this)">RFID</button>
+      <button class="ftab" onclick="setLogFilter('remote',this)">Remote</button>
     </div>
     <button class="btn ghost" style="margin-bottom:10px;font-size:12px" onclick="loadLog()">↻ Làm mới</button>
     <div id="log_list"><div class="empty">Đang tải...</div></div>
@@ -287,7 +293,6 @@ input::placeholder { color: rgba(255,255,255,0.3); }
 let currentLogFilter  = 'as608';
 let currentSyncSensor = 0;
 
-// API Key — lưu trong sessionStorage của trình duyệt
 function getApiKey() {
   return sessionStorage.getItem('api_key') || '';
 }
@@ -300,7 +305,6 @@ function saveApiKey() {
   toast('API Key đã lưu', '#22c55e');
 }
 
-// Headers mặc định cho request cần auth
 function authHeaders(extra) {
   return Object.assign({'X-API-Key': getApiKey()}, extra || {});
 }
@@ -308,14 +312,14 @@ function authHeaders(extra) {
 // =========================================
 // UI HELPERS
 // =========================================
-function showTab(id) {
+function showTab(id, btn) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
+  if (btn) btn.classList.add('active');
   if (id==='home')     loadStats();
   if (id==='as608')    loadAS608Users();
-  if (id==='r558s')    loadR558SUsers();
+  if (id==='r503')     loadR503Users();
   if (id==='rfid')     loadRFIDList();
   if (id==='log')      loadLog();
   if (id==='db')     { loadDbUsers(); loadDbRfid(); }
@@ -334,8 +338,8 @@ function toast(msg, color) {
 // =========================================
 function loadStats() {
   fetch('/sync-status').then(r=>r.json()).then(d=>{
-    document.getElementById('stat-as').innerText   = d.as608 ?? '—';
-    document.getElementById('stat-rs').innerText   = d.r558s ?? '—';
+    document.getElementById('stat-as').innerText = d.as608 ?? '—';
+    document.getElementById('stat-rs').innerText = d.r503  ?? '—';
   }).catch(()=>{});
   fetch('/rfid-list').then(r=>r.json()).then(d=>{
     document.getElementById('stat-rfid').innerText = d.length;
@@ -355,7 +359,7 @@ function unlock() {
     if (d.status==='unlocked') {
       icon.innerText='🔓'; icon.style.borderColor='#22c55e';
       toast('Đã mở khóa!','#22c55e');
-      setTimeout(()=>{icon.innerText='🔒';icon.style.borderColor='#3b82f6';},3000);
+      setTimeout(()=>{ icon.innerText='🔒'; icon.style.borderColor='#3b82f6'; },3000);
     } else {
       icon.innerText='🔒'; toast('Token sai!','#ef4444');
     }
@@ -372,7 +376,7 @@ function syncFromDB() {
   const btn  = document.getElementById('syncBtn');
   const st   = document.getElementById('syncStatus');
   const prog = document.getElementById('syncProgress');
-  const ep   = currentSyncSensor===0 ? '/as608/sync-from-db' : '/r558s/sync-from-db';
+  const ep   = currentSyncSensor===0 ? '/as608/sync-from-db' : '/r503/sync-from-db';
   btn.disabled=true; btn.innerHTML='<span class="spin"></span> Đang sync...';
   prog.style.width='10%';
   fetch(ep, {method:'POST', headers: authHeaders()}).then(r=>r.text()).then(msg=>{
@@ -381,7 +385,7 @@ function syncFromDB() {
     const iv=setInterval(()=>{
       polls++; p=Math.min(90,p+8); prog.style.width=p+'%';
       fetch('/sync-status').then(r=>r.json()).then(d=>{
-        const c=currentSyncSensor===0?d.as608:d.r558s;
+        const c = currentSyncSensor===0 ? d.as608 : d.r503;
         st.innerText='Đang sync... ('+c+' user trong flash)';
         if(polls>=12){
           clearInterval(iv); prog.style.width='100%';
@@ -457,7 +461,7 @@ function loadAS608Users() {
         <div class="acts">
           <input class="edit-in" id="as_e_${u.slot}" value="${u.name}">
           <button class="btn update" style="padding:5px 10px;font-size:12px" onclick="updateAS(${u.slot})">Sửa</button>
-          <button class="btn delete" style="padding:5px 10px;font-size:12px" onclick="deleteAS(${u.slot})">Xóa</button>
+          <button class="btn delete" style="padding:5px 10px;font-size:12px" onclick="deleteAS(${u.slot},'${u.code}')">Xóa</button>
         </div>
       </div>`).join('');
   }).catch(()=>{
@@ -474,17 +478,17 @@ function updateAS(slot) {
   }).then(r=>r.text()).then(d=>{toast(d,'#22c55e');loadAS608Users();});
 }
 
-function deleteAS(slot) {
+function deleteAS(slot, code) {
   if (!confirm('Xóa slot '+slot+'?')) return;
   fetch('/as608/delete', {
     method:'POST',
     headers: authHeaders({'Content-Type':'application/x-www-form-urlencoded'}),
-    body:'slot='+slot
+    body:'slot='+slot+'&code='+encodeURIComponent(code)
   }).then(r=>r.text()).then(d=>{toast(d,'#22c55e');loadAS608Users();});
 }
 
 // =========================================
-// R558S
+// R503
 // =========================================
 function enrollRS() {
   const code = document.getElementById('rs_code').value.trim();
@@ -492,8 +496,8 @@ function enrollRS() {
   const st   = document.getElementById('rs_enroll_status');
   if (!code||!name) { toast('Thiếu mã số hoặc tên','#ef4444'); return; }
   if (!getApiKey()) { toast('Chưa nhập API Key (tab Cài đặt)','#ef4444'); return; }
-  st.innerHTML='<span class="spin"></span> Đang enroll — đặt ngón tay lên R558S...';
-  fetch('/r558s/enroll', {
+  st.innerHTML='<span class="spin"></span> Đang enroll — đặt ngón tay lên R503...';
+  fetch('/r503/enroll', {
     method:'POST',
     headers: authHeaders({'Content-Type':'application/x-www-form-urlencoded'}),
     body:'code='+encodeURIComponent(code)+'&name='+encodeURIComponent(name)
@@ -502,7 +506,7 @@ function enrollRS() {
     if (!d.includes('thất bại')) {
       document.getElementById('rs_code').value='';
       document.getElementById('rs_name').value='';
-      loadR558SUsers();
+      loadR503Users();
     }
   }).catch(()=>{st.innerText='Lỗi kết nối';toast('Lỗi','#ef4444');});
 }
@@ -513,7 +517,7 @@ function syncOneRS() {
   if (!code) { toast('Nhập mã số','#ef4444'); return; }
   if (!getApiKey()) { toast('Chưa nhập API Key','#ef4444'); return; }
   st.innerHTML='<span class="spin"></span> Đang sync...';
-  fetch('/r558s/sync-from-db', {
+  fetch('/r503/sync-from-db', {
     method:'POST',
     headers: authHeaders({'Content-Type':'application/json'}),
     body: JSON.stringify({code})
@@ -525,47 +529,47 @@ function syncAllRS() {
   const st = document.getElementById('rs_sync_status');
   if (!getApiKey()) { toast('Chưa nhập API Key','#ef4444'); return; }
   st.innerHTML='<span class="spin"></span> Đang sync tất cả...';
-  fetch('/r558s/sync-from-db', {method:'POST', headers: authHeaders()})
+  fetch('/r503/sync-from-db', {method:'POST', headers: authHeaders()})
   .then(r=>r.text()).then(d=>{st.innerText=d;toast(d,'#8b5cf6');})
   .catch(()=>{st.innerText='Lỗi';toast('Lỗi','#ef4444');});
 }
 
-function loadR558SUsers() {
-  fetch('/r558s/users').then(r=>r.json()).then(data=>{
+function loadR503Users() {
+  fetch('/r503/users').then(r=>r.json()).then(data=>{
     if (!data.length) {
-      document.getElementById('r558s_list').innerHTML='<div class="empty">Chưa có user nào</div>';
+      document.getElementById('r503_list').innerHTML='<div class="empty">Chưa có user nào</div>';
       return;
     }
-    document.getElementById('r558s_list').innerHTML=data.map(u=>`
+    document.getElementById('r503_list').innerHTML=data.map(u=>`
       <div class="item">
         <div class="info"><b>${u.name}</b><span>Mã: ${u.code} · Slot: ${u.slot}</span></div>
         <div class="acts">
           <input class="edit-in" id="rs_e_${u.slot}" value="${u.name}">
           <button class="btn update" style="padding:5px 10px;font-size:12px" onclick="updateRS(${u.slot})">Sửa</button>
-          <button class="btn delete" style="padding:5px 10px;font-size:12px" onclick="deleteRS(${u.slot})">Xóa</button>
+          <button class="btn delete" style="padding:5px 10px;font-size:12px" onclick="deleteRS(${u.slot},'${u.code}')">Xóa</button>
         </div>
       </div>`).join('');
   }).catch(()=>{
-    document.getElementById('r558s_list').innerHTML='<div class="empty" style="color:#ef4444">Lỗi tải dữ liệu</div>';
+    document.getElementById('r503_list').innerHTML='<div class="empty" style="color:#ef4444">Lỗi tải dữ liệu</div>';
   });
 }
 
 function updateRS(slot) {
   const name = document.getElementById('rs_e_'+slot).value;
-  fetch('/r558s/update', {
+  fetch('/r503/update', {
     method:'POST',
     headers: authHeaders({'Content-Type':'application/x-www-form-urlencoded'}),
     body:'slot='+slot+'&name='+encodeURIComponent(name)
-  }).then(r=>r.text()).then(d=>{toast(d,'#22c55e');loadR558SUsers();});
+  }).then(r=>r.text()).then(d=>{toast(d,'#22c55e');loadR503Users();});
 }
 
-function deleteRS(slot) {
+function deleteRS(slot, code) {
   if (!confirm('Xóa slot '+slot+'?')) return;
-  fetch('/r558s/delete', {
+  fetch('/r503/delete', {
     method:'POST',
     headers: authHeaders({'Content-Type':'application/x-www-form-urlencoded'}),
-    body:'slot='+slot
-  }).then(r=>r.text()).then(d=>{toast(d,'#22c55e');loadR558SUsers();});
+    body:'slot='+slot+'&code='+encodeURIComponent(code)
+  }).then(r=>r.text()).then(d=>{toast(d,'#22c55e');loadR503Users();});
 }
 
 // =========================================
@@ -641,34 +645,25 @@ function deleteRFID(id) {
 }
 
 // =========================================
-// LOG — lấy từ Node.js server (có đủ RFID, remote)
+// LOG
 // =========================================
-const logFilterLabels = {
-  'as608':'AS608','r558s':'R558S','rfid':'RFID','remote':'Remote'
-};
 const logMethodBadge = {
-  'as608':   '<span class="badge b-blue">AS608</span>',
-  'r558s':   '<span class="badge b-purple">R558S</span>',
-  'rfid':    '<span class="badge b-cyan">RFID</span>',
-  'remote':  '<span class="badge b-orange">Remote</span>',
+  'as608':  '<span class="badge b-blue">AS608</span>',
+  'r503':   '<span class="badge b-purple">R503</span>',
+  'rfid':   '<span class="badge b-cyan">RFID</span>',
+  'remote': '<span class="badge b-orange">Remote</span>',
 };
 
-function setLogFilter(f) {
+function setLogFilter(f, btn) {
   currentLogFilter = f;
-  document.querySelectorAll('.ftab').forEach(btn => {
-    btn.classList.toggle('active', btn.innerText.toLowerCase().includes(logFilterLabels[f].toLowerCase()));
-  });
+  document.querySelectorAll('.ftab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
   loadLog();
 }
 
 function loadLog() {
-  // Lấy log từ Node.js server qua proxy /db-users bị trùng — dùng endpoint riêng
-  // FIX: đọc từ server Node.js trực tiếp qua proxy mới /api-log
   fetch('/log-proxy?sensor='+currentLogFilter)
-  .then(r => {
-    if (!r.ok) throw new Error(r.status);
-    return r.json();
-  })
+  .then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); })
   .then(data=>{
     const el = document.getElementById('log_list');
     if (!data.length) { el.innerHTML='<div class="empty">Chưa có log nào</div>'; return; }
@@ -690,25 +685,28 @@ function loadLog() {
 }
 
 // =========================================
-// DATABASE (proxy qua ESP32 → Node.js)
+// DATABASE — hiển thị 2 template riêng biệt
 // =========================================
 function loadDbUsers() {
+  // Dùng /api/users/all qua proxy để lấy cả 2 cột fingerprint
   fetch('/db-users').then(r=>r.json()).then(data=>{
     if (!data.length) {
       document.getElementById('db_user_list').innerHTML='<div class="empty">Chưa có user nào trên server</div>';
       return;
     }
     document.getElementById('db_user_list').innerHTML=data.map(u=>{
-      const hasFP  = u.fingerprint && u.fingerprint.length > 0;
+      const hasAS = u.fingerprint_as608 && u.fingerprint_as608.length > 0;
+      const hasRS = u.fingerprint_r503  && u.fingerprint_r503.length  > 0;
       const sensors = u.sensors || '—';
       return `
         <div class="item">
           <div class="info">
             <b>${u.name}</b>
-            <span>Mã: ${u.code||'—'} · Slot: ${u.slot||'—'} ·
-              <span class="badge ${hasFP?'b-green':'b-red'}">${hasFP?'Template ✓':'No template'}</span>
-              <span class="badge b-blue">${sensors}</span>
-            </span>
+            <span>Mã: ${u.code||'—'} · Slot: ${u.slot||'—'} · <span class="badge b-blue">${sensors}</span></span>
+            <div class="fp-row">
+              <span class="fp-chip ${hasAS?'fp-ok':'fp-no'}">AS608 ${hasAS?'✓':'✗'}</span>
+              <span class="fp-chip ${hasRS?'fp-ok':'fp-no'}">R503 ${hasRS?'✓':'✗'}</span>
+            </div>
           </div>
           <div class="acts">
             <input class="edit-in" id="db_e_${u.code}" value="${u.name}">
