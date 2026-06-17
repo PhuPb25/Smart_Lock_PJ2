@@ -6,7 +6,7 @@
 
 // =========================================
 // HELPER — Đẩy 1 log entry lên server
-// sensor: "AS608" | "R503" | "RFID" | "Remote"
+// sensor: "AS608-1" | "AS608-2" | "R503" | "RFID" | "Remote"
 // =========================================
 static void pushLogToServer(int slot, const String& uid, const String& name,
                              const String& code, bool granted, const String& sensor) {
@@ -35,27 +35,17 @@ static void pushLogToServer(int slot, const String& uid, const String& name,
 }
 
 // =========================================
-// AS608
+// AS608 #1
 // =========================================
-AccessLog logAS[20];
-int logIndexAS = 0;
-
-void logAccessAS(int id, const String& uid, const String& name,
+void logAccessAS1(int id, const String& uid, const String& name,
                  bool granted, const String& code) {
-    logAS[logIndexAS % 20] = { id, uid, name, granted, time(nullptr) };
-    logIndexAS++;
-    pushLogToServer(id, uid, name, code, granted, "AS608");
+    pushLogToServer(id, uid, name, code, granted, "AS608-1");
 }
 
 // =========================================
-// R503
+// AS608 #2
 // =========================================
-AccessLog logRS[20];
-int logIndexRS = 0;
-
-void logAccessRS(int id, const String& uid, const String& name,
+void logAccessAS2(int id, const String& uid, const String& name,
                  bool granted, const String& code) {
-    logRS[logIndexRS % 20] = { id, uid, name, granted, time(nullptr) };
-    logIndexRS++;
-    pushLogToServer(id, uid, name, code, granted, "R503");
+    pushLogToServer(id, uid, name, code, granted, "AS608-2");
 }

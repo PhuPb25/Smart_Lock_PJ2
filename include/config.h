@@ -15,8 +15,8 @@
 #define LOCK_OPEN_DURATION_MS 3000
 
 // Server mặc định — lưu vào Preferences khi lần đầu boot
-#define DEFAULT_SERVER_IP "172.20.10.4"
-//#define DEFAULT_SERVER_IP "192.168.1.2"
+//#define DEFAULT_SERVER_IP "172.20.10.4"
+#define DEFAULT_SERVER_IP "192.168.1.6"
 #define SERVER_PORT       3000
 
 // Lấy địa chỉ server hiện tại (đọc từ Preferences, fallback về DEFAULT)

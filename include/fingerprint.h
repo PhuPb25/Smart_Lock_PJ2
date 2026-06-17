@@ -2,33 +2,32 @@
 #define FINGERPRINT_H
 
 #include <Arduino.h>
+#include <Adafruit_Fingerprint.h>
+#include <HardwareSerial.h>
 
-// AS608 vẫn dùng Adafruit
-int findFreeSlotAS();
-int findFreeSlotRS();
+int findFreeSlotAS1();
+int findFreeSlotAS2();
 
-uint8_t enrollAS608(uint8_t slot, String name, String code);
-uint8_t enrollR503(uint8_t slot, String name, String code);  // Dùng R503 driver
-uint8_t enrollFinger(String name, String code, uint8_t sensorType);
+uint8_t enrollAS1(uint8_t slot, String name, String code);
+uint8_t enrollFinger(String name, String code, uint8_t sensorIdx);
 
-void syncAfterEnrollAS(uint8_t slot, String name, String code);
-void syncAfterEnrollRS(uint8_t slot, String name, String code);
+void syncAfterEnroll(uint8_t slot, String name, String code);
 
-uint8_t manualDownloadModelAS(uint8_t* dest);
-uint8_t manualDownloadModelRS(uint8_t* dest);   // Sẽ dùng R503 driver
+uint8_t manualDownloadModelAS(Adafruit_Fingerprint& finger, HardwareSerial& serial, uint8_t* dest);
+uint8_t uploadFingerprintTemplate(Adafruit_Fingerprint& finger, HardwareSerial& serial,
+                                  uint16_t slot, String base64Data);
 
-uint8_t uploadFingerprintTemplateAS(uint16_t slot, String base64Data);
-uint8_t uploadFingerprintTemplateRS(uint16_t slot, String base64Data);
+void syncFromServer(uint8_t sensorIdx);
+void syncUserFromServer(String code, uint8_t sensorIdx);
 
-void syncFromServer(uint8_t sensorType);
-void syncUserFromServer(String code, uint8_t sensorType);
-
-void checkAS608();
-void checkR503();
+void checkAS1();
+void checkAS2();
 void checkFingerprint();
 
-void emptyDatabaseRS();
-void emptyDatabaseAS();
-bool deleteR503Template(uint16_t slot);
+void emptyDatabaseAS1();
+void emptyDatabaseAS2();
+
+bool deleteTemplateAS1(uint16_t slot);
+bool deleteTemplateAS2(uint16_t slot);
 
 #endif

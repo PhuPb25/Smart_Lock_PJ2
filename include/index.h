@@ -16,7 +16,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 body { background: linear-gradient(135deg, #0f172a, #1e293b); color: white; min-height: 100vh; }
 
 .nav { display: flex; background: rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.08); overflow-x: auto; }
-.nav button { flex: 1; min-width: 70px; padding: 14px 8px; border: none; background: transparent; color: rgba(255,255,255,0.6); cursor: pointer; font-size: 12px; white-space: nowrap; transition: all .2s; }
+.nav button { flex: 1; min-width: 90px; padding: 14px 8px; border: none; background: transparent; color: rgba(255,255,255,0.6); cursor: pointer; font-size: 12px; white-space: nowrap; transition: all .2s; }
 .nav button.active { background: #3b82f6; color: white; }
 .nav button:hover:not(.active) { background: rgba(255,255,255,0.07); color: white; }
 
@@ -113,24 +113,23 @@ input::placeholder { color: rgba(255,255,255,0.3); }
 
 <div class="nav">
   <button onclick="showTab('home',this)" class="active">🏠 Home</button>
-  <button onclick="showTab('as608',this)">👁 AS608</button>
-  <button onclick="showTab('r503',this)">👁 R503</button>
+  <button onclick="showTab('as608_1',this)">👁 AS608 #1</button>
+  <button onclick="showTab('as608_2',this)">👁 AS608 #2</button>
   <button onclick="showTab('rfid',this)">📡 RFID</button>
   <button onclick="showTab('log',this)">📜 Log</button>
   <button onclick="showTab('db',this)">☁️ Server</button>
   <button onclick="showTab('settings',this)">⚙️ Cài đặt</button>
 </div>
 
-<!-- HOME -->
 <div id="home" class="tab active">
   <div class="stat-grid">
     <div class="stat-card">
-      <div class="stat-num" id="stat-as" style="color:#3b82f6">—</div>
-      <div class="stat-lbl">AS608 users</div>
+      <div class="stat-num" id="stat-as1" style="color:#3b82f6">—</div>
+      <div class="stat-lbl">AS608 #1 users</div>
     </div>
     <div class="stat-card">
-      <div class="stat-num" id="stat-rs" style="color:#8b5cf6">—</div>
-      <div class="stat-lbl">R503 users</div>
+      <div class="stat-num" id="stat-as2" style="color:#8b5cf6">—</div>
+      <div class="stat-lbl">AS608 #2 users</div>
     </div>
     <div class="stat-card">
       <div class="stat-num" id="stat-rfid" style="color:#22c55e">—</div>
@@ -150,8 +149,8 @@ input::placeholder { color: rgba(255,255,255,0.3); }
       <h2>☁️ Đồng bộ từ server</h2>
       <p class="note">Kéo toàn bộ vân tay từ database về thiết bị. Chọn cảm biến cần sync.</p>
       <div class="stab-row" style="margin-top:10px">
-        <button class="stab active" id="syncTab0" onclick="setSyncSensor(0)">AS608</button>
-        <button class="stab" id="syncTab1" onclick="setSyncSensor(1)">R503</button>
+        <button class="stab active" id="syncTab0" onclick="setSyncSensor(0)">AS608 #1</button>
+        <button class="stab" id="syncTab1" onclick="setSyncSensor(1)">AS608 #2</button>
       </div>
       <button class="btn enroll" id="syncBtn" style="width:100%" onclick="syncFromDB()">↓ SYNC TẤT CẢ</button>
       <div class="prog-wrap"><div class="prog-bar" id="syncProgress"></div></div>
@@ -160,61 +159,58 @@ input::placeholder { color: rgba(255,255,255,0.3); }
   </div>
 </div>
 
-<!-- AS608 -->
-<div id="as608" class="tab">
+<div id="as608_1" class="tab">
   <div class="grid2">
     <div class="card">
-      <h2>➕ Enroll vân tay AS608</h2>
-      <input type="text" id="as_code" placeholder="Mã số (VD: SV001)">
-      <input type="text" id="as_name" placeholder="Tên người dùng">
-      <button class="btn enroll" onclick="enrollAS()">+ ENROLL</button>
-      <div class="status" id="as_enroll_status"></div>
+      <h2>➕ Enroll vân tay AS608 #1</h2>
+      <input type="text" id="as1_code" placeholder="Mã số (VD: SV001)">
+      <input type="text" id="as1_name" placeholder="Tên người dùng">
+      <button class="btn enroll" onclick="enrollAS1()">+ ENROLL</button>
+      <div class="status" id="as1_enroll_status"></div>
     </div>
     <div class="card">
       <h2>☁️ Sync từ server</h2>
-      <input type="text" id="as_sync_code" placeholder="Mã số cần sync (để trống = tất cả)">
-      <button class="btn yellow" onclick="syncOneAS()">↓ Sync 1 user</button>
-      <button class="btn ghost" onclick="syncAllAS()">↓ Sync tất cả</button>
-      <div class="status" id="as_sync_status"></div>
+      <input type="text" id="as1_sync_code" placeholder="Mã số cần sync (để trống = tất cả)">
+      <button class="btn yellow" onclick="syncOneAS1()">↓ Sync 1 user</button>
+      <button class="btn ghost" onclick="syncAllAS1()">↓ Sync tất cả</button>
+      <div class="status" id="as1_sync_status"></div>
     </div>
   </div>
   <div class="card">
     <h2>
-      👤 Danh sách user AS608
-      <button class="btn ghost" style="padding:5px 10px;font-size:11px;margin-left:auto" onclick="loadAS608Users()">↻ Làm mới</button>
+      👤 Danh sách user AS608 #1
+      <button class="btn ghost" style="padding:5px 10px;font-size:11px;margin-left:auto" onclick="loadAS1Users()">↻ Làm mới</button>
     </h2>
-    <div id="as608_list"><div class="empty">Đang tải...</div></div>
+    <div id="as1_list"><div class="empty">Đang tải...</div></div>
   </div>
 </div>
 
-<!-- R503 -->
-<div id="r503" class="tab">
+<div id="as608_2" class="tab">
   <div class="grid2">
     <div class="card">
-      <h2>➕ Enroll vân tay R503</h2>
-      <input type="text" id="rs_code" placeholder="Mã số (VD: SV001)">
-      <input type="text" id="rs_name" placeholder="Tên người dùng">
-      <button class="btn purple" onclick="enrollRS()">+ ENROLL</button>
-      <div class="status" id="rs_enroll_status"></div>
+      <h2>➕ Enroll vân tay AS608 #2</h2>
+      <input type="text" id="as2_code" placeholder="Mã số (VD: SV001)">
+      <input type="text" id="as2_name" placeholder="Tên người dùng">
+      <button class="btn purple" onclick="enrollAS2()">+ ENROLL</button>
+      <div class="status" id="as2_enroll_status"></div>
     </div>
     <div class="card">
       <h2>☁️ Sync từ server</h2>
-      <input type="text" id="rs_sync_code" placeholder="Mã số cần sync (để trống = tất cả)">
-      <button class="btn yellow" onclick="syncOneRS()">↓ Sync 1 user</button>
-      <button class="btn ghost" onclick="syncAllRS()">↓ Sync tất cả</button>
-      <div class="status" id="rs_sync_status"></div>
+      <input type="text" id="as2_sync_code" placeholder="Mã số cần sync (để trống = tất cả)">
+      <button class="btn yellow" onclick="syncOneAS2()">↓ Sync 1 user</button>
+      <button class="btn ghost" onclick="syncAllAS2()">↓ Sync tất cả</button>
+      <div class="status" id="as2_sync_status"></div>
     </div>
   </div>
   <div class="card">
     <h2>
-      👤 Danh sách user R503
-      <button class="btn ghost" style="padding:5px 10px;font-size:11px;margin-left:auto" onclick="loadR503Users()">↻ Làm mới</button>
+      👤 Danh sách user AS608 #2
+      <button class="btn ghost" style="padding:5px 10px;font-size:11px;margin-left:auto" onclick="loadAS2Users()">↻ Làm mới</button>
     </h2>
-    <div id="r503_list"><div class="empty">Đang tải...</div></div>
+    <div id="as2_list"><div class="empty">Đang tải...</div></div>
   </div>
 </div>
 
-<!-- RFID -->
 <div id="rfid" class="tab">
   <div class="card">
     <h2>📡 Thêm thẻ RFID</h2>
@@ -233,13 +229,12 @@ input::placeholder { color: rgba(255,255,255,0.3); }
   </div>
 </div>
 
-<!-- LOG -->
 <div id="log" class="tab">
   <div class="card">
     <h2>📜 Lịch sử truy cập</h2>
     <div class="filter-row">
-      <button class="ftab active" onclick="setLogFilter('as608',this)">AS608</button>
-      <button class="ftab" onclick="setLogFilter('r503',this)">R503</button>
+      <button class="ftab active" onclick="setLogFilter('as608-1',this)">AS608 #1</button>
+      <button class="ftab" onclick="setLogFilter('as608-2',this)">AS608 #2</button>
       <button class="ftab" onclick="setLogFilter('rfid',this)">RFID</button>
       <button class="ftab" onclick="setLogFilter('remote',this)">Remote</button>
     </div>
@@ -248,7 +243,6 @@ input::placeholder { color: rgba(255,255,255,0.3); }
   </div>
 </div>
 
-<!-- SERVER/DATABASE -->
 <div id="db" class="tab">
   <div class="card">
     <h2>
@@ -266,7 +260,6 @@ input::placeholder { color: rgba(255,255,255,0.3); }
   </div>
 </div>
 
-<!-- SETTINGS -->
 <div id="settings" class="tab">
   <div class="card">
     <h2>🔑 API Key</h2>
@@ -290,7 +283,7 @@ input::placeholder { color: rgba(255,255,255,0.3); }
 // =========================================
 // STATE
 // =========================================
-let currentLogFilter  = 'as608';
+let currentLogFilter  = 'as608-1';
 let currentSyncSensor = 0;
 
 function getApiKey() {
@@ -318,8 +311,8 @@ function showTab(id, btn) {
   document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   if (id==='home')     loadStats();
-  if (id==='as608')    loadAS608Users();
-  if (id==='r503')     loadR503Users();
+  if (id==='as608_1')  loadAS1Users();
+  if (id==='as608_2')  loadAS2Users();
   if (id==='rfid')     loadRFIDList();
   if (id==='log')      loadLog();
   if (id==='db')     { loadDbUsers(); loadDbRfid(); }
@@ -338,8 +331,8 @@ function toast(msg, color) {
 // =========================================
 function loadStats() {
   fetch('/sync-status').then(r=>r.json()).then(d=>{
-    document.getElementById('stat-as').innerText = d.as608 ?? '—';
-    document.getElementById('stat-rs').innerText = d.r503  ?? '—';
+    document.getElementById('stat-as1').innerText = d.as608_1 ?? '—';
+    document.getElementById('stat-as2').innerText = d.as608_2 ?? '—';
   }).catch(()=>{});
   fetch('/rfid-list').then(r=>r.json()).then(d=>{
     document.getElementById('stat-rfid').innerText = d.length;
@@ -376,7 +369,7 @@ function syncFromDB() {
   const btn  = document.getElementById('syncBtn');
   const st   = document.getElementById('syncStatus');
   const prog = document.getElementById('syncProgress');
-  const ep   = currentSyncSensor===0 ? '/as608/sync-from-db' : '/r503/sync-from-db';
+  const ep   = currentSyncSensor===0 ? '/as608-1/sync-from-db' : '/as608-2/sync-from-db';
   btn.disabled=true; btn.innerHTML='<span class="spin"></span> Đang sync...';
   prog.style.width='10%';
   fetch(ep, {method:'POST', headers: authHeaders()}).then(r=>r.text()).then(msg=>{
@@ -385,7 +378,7 @@ function syncFromDB() {
     const iv=setInterval(()=>{
       polls++; p=Math.min(90,p+8); prog.style.width=p+'%';
       fetch('/sync-status').then(r=>r.json()).then(d=>{
-        const c = currentSyncSensor===0 ? d.as608 : d.r503;
+        const c = currentSyncSensor===0 ? d.as608_1 : d.as608_2;
         st.innerText='Đang sync... ('+c+' user trong flash)';
         if(polls>=12){
           clearInterval(iv); prog.style.width='100%';
@@ -403,36 +396,36 @@ function syncFromDB() {
 }
 
 // =========================================
-// AS608
+// AS608 #1
 // =========================================
-function enrollAS() {
-  const code = document.getElementById('as_code').value.trim();
-  const name = document.getElementById('as_name').value.trim();
-  const st   = document.getElementById('as_enroll_status');
+function enrollAS1() {
+  const code = document.getElementById('as1_code').value.trim();
+  const name = document.getElementById('as1_name').value.trim();
+  const st   = document.getElementById('as1_enroll_status');
   if (!code||!name) { toast('Thiếu mã số hoặc tên','#ef4444'); return; }
   if (!getApiKey()) { toast('Chưa nhập API Key (tab Cài đặt)','#ef4444'); return; }
-  st.innerHTML='<span class="spin"></span> Đang enroll — đặt ngón tay lên AS608...';
-  fetch('/as608/enroll', {
+  st.innerHTML='<span class="spin"></span> Đang enroll — đặt ngón tay lên AS608 #1...';
+  fetch('/as608-1/enroll', {
     method:'POST',
     headers: authHeaders({'Content-Type':'application/x-www-form-urlencoded'}),
     body:'code='+encodeURIComponent(code)+'&name='+encodeURIComponent(name)
   }).then(r=>r.text()).then(d=>{
     st.innerText=d; toast(d, d.includes('thất bại')?'#ef4444':'#22c55e');
     if (!d.includes('thất bại')) {
-      document.getElementById('as_code').value='';
-      document.getElementById('as_name').value='';
-      loadAS608Users();
+      document.getElementById('as1_code').value='';
+      document.getElementById('as1_name').value='';
+      loadAS1Users();
     }
   }).catch(()=>{st.innerText='Lỗi kết nối';toast('Lỗi','#ef4444');});
 }
 
-function syncOneAS() {
-  const code = document.getElementById('as_sync_code').value.trim();
-  const st   = document.getElementById('as_sync_status');
+function syncOneAS1() {
+  const code = document.getElementById('as1_sync_code').value.trim();
+  const st   = document.getElementById('as1_sync_status');
   if (!code) { toast('Nhập mã số','#ef4444'); return; }
   if (!getApiKey()) { toast('Chưa nhập API Key','#ef4444'); return; }
   st.innerHTML='<span class="spin"></span> Đang sync...';
-  fetch('/as608/sync-from-db', {
+  fetch('/as608-1/sync-from-db', {
     method:'POST',
     headers: authHeaders({'Content-Type':'application/json'}),
     body: JSON.stringify({code})
@@ -440,84 +433,84 @@ function syncOneAS() {
   .catch(()=>{st.innerText='Lỗi';toast('Lỗi','#ef4444');});
 }
 
-function syncAllAS() {
-  const st = document.getElementById('as_sync_status');
+function syncAllAS1() {
+  const st = document.getElementById('as1_sync_status');
   if (!getApiKey()) { toast('Chưa nhập API Key','#ef4444'); return; }
   st.innerHTML='<span class="spin"></span> Đang sync tất cả...';
-  fetch('/as608/sync-from-db', {method:'POST', headers: authHeaders()})
+  fetch('/as608-1/sync-from-db', {method:'POST', headers: authHeaders()})
   .then(r=>r.text()).then(d=>{st.innerText=d;toast(d,'#3b82f6');})
   .catch(()=>{st.innerText='Lỗi';toast('Lỗi','#ef4444');});
 }
 
-function loadAS608Users() {
-  fetch('/as608/users').then(r=>r.json()).then(data=>{
+function loadAS1Users() {
+  fetch('/as608-1/users').then(r=>r.json()).then(data=>{
     if (!data.length) {
-      document.getElementById('as608_list').innerHTML='<div class="empty">Chưa có user nào</div>';
+      document.getElementById('as1_list').innerHTML='<div class="empty">Chưa có user nào</div>';
       return;
     }
-    document.getElementById('as608_list').innerHTML=data.map(u=>`
+    document.getElementById('as1_list').innerHTML=data.map(u=>`
       <div class="item">
         <div class="info"><b>${u.name}</b><span>Mã: ${u.code} · Slot: ${u.slot}</span></div>
         <div class="acts">
-          <input class="edit-in" id="as_e_${u.slot}" value="${u.name}">
-          <button class="btn update" style="padding:5px 10px;font-size:12px" onclick="updateAS(${u.slot})">Sửa</button>
-          <button class="btn delete" style="padding:5px 10px;font-size:12px" onclick="deleteAS(${u.slot},'${u.code}')">Xóa</button>
+          <input class="edit-in" id="as1_e_${u.slot}" value="${u.name}">
+          <button class="btn update" style="padding:5px 10px;font-size:12px" onclick="updateAS1(${u.slot})">Sửa</button>
+          <button class="btn delete" style="padding:5px 10px;font-size:12px" onclick="deleteAS1(${u.slot},'${u.code}')">Xóa</button>
         </div>
       </div>`).join('');
   }).catch(()=>{
-    document.getElementById('as608_list').innerHTML='<div class="empty" style="color:#ef4444">Lỗi tải dữ liệu</div>';
+    document.getElementById('as1_list').innerHTML='<div class="empty" style="color:#ef4444">Lỗi tải dữ liệu</div>';
   });
 }
 
-function updateAS(slot) {
-  const name = document.getElementById('as_e_'+slot).value;
-  fetch('/as608/update', {
+function updateAS1(slot) {
+  const name = document.getElementById('as1_e_'+slot).value;
+  fetch('/as608-1/update', {
     method:'POST',
     headers: authHeaders({'Content-Type':'application/x-www-form-urlencoded'}),
     body:'slot='+slot+'&name='+encodeURIComponent(name)
-  }).then(r=>r.text()).then(d=>{toast(d,'#22c55e');loadAS608Users();});
+  }).then(r=>r.text()).then(d=>{toast(d,'#22c55e');loadAS1Users();});
 }
 
-function deleteAS(slot, code) {
+function deleteAS1(slot, code) {
   if (!confirm('Xóa slot '+slot+'?')) return;
-  fetch('/as608/delete', {
+  fetch('/as608-1/delete', {
     method:'POST',
     headers: authHeaders({'Content-Type':'application/x-www-form-urlencoded'}),
     body:'slot='+slot+'&code='+encodeURIComponent(code)
-  }).then(r=>r.text()).then(d=>{toast(d,'#22c55e');loadAS608Users();});
+  }).then(r=>r.text()).then(d=>{toast(d,'#22c55e');loadAS1Users();});
 }
 
 // =========================================
-// R503
+// AS608 #2
 // =========================================
-function enrollRS() {
-  const code = document.getElementById('rs_code').value.trim();
-  const name = document.getElementById('rs_name').value.trim();
-  const st   = document.getElementById('rs_enroll_status');
+function enrollAS2() {
+  const code = document.getElementById('as2_code').value.trim();
+  const name = document.getElementById('as2_name').value.trim();
+  const st   = document.getElementById('as2_enroll_status');
   if (!code||!name) { toast('Thiếu mã số hoặc tên','#ef4444'); return; }
   if (!getApiKey()) { toast('Chưa nhập API Key (tab Cài đặt)','#ef4444'); return; }
-  st.innerHTML='<span class="spin"></span> Đang enroll — đặt ngón tay lên R503...';
-  fetch('/r503/enroll', {
+  st.innerHTML='<span class="spin"></span> Đang enroll — đặt ngón tay lên AS608 #2...';
+  fetch('/as608-2/enroll', {
     method:'POST',
     headers: authHeaders({'Content-Type':'application/x-www-form-urlencoded'}),
     body:'code='+encodeURIComponent(code)+'&name='+encodeURIComponent(name)
   }).then(r=>r.text()).then(d=>{
     st.innerText=d; toast(d, d.includes('thất bại')?'#ef4444':'#22c55e');
     if (!d.includes('thất bại')) {
-      document.getElementById('rs_code').value='';
-      document.getElementById('rs_name').value='';
-      loadR503Users();
+      document.getElementById('as2_code').value='';
+      document.getElementById('as2_name').value='';
+      loadAS2Users();
     }
   }).catch(()=>{st.innerText='Lỗi kết nối';toast('Lỗi','#ef4444');});
 }
 
-function syncOneRS() {
-  const code = document.getElementById('rs_sync_code').value.trim();
-  const st   = document.getElementById('rs_sync_status');
+function syncOneAS2() {
+  const code = document.getElementById('as2_sync_code').value.trim();
+  const st   = document.getElementById('as2_sync_status');
   if (!code) { toast('Nhập mã số','#ef4444'); return; }
   if (!getApiKey()) { toast('Chưa nhập API Key','#ef4444'); return; }
   st.innerHTML='<span class="spin"></span> Đang sync...';
-  fetch('/r503/sync-from-db', {
+  fetch('/as608-2/sync-from-db', {
     method:'POST',
     headers: authHeaders({'Content-Type':'application/json'}),
     body: JSON.stringify({code})
@@ -525,51 +518,51 @@ function syncOneRS() {
   .catch(()=>{st.innerText='Lỗi';toast('Lỗi','#ef4444');});
 }
 
-function syncAllRS() {
-  const st = document.getElementById('rs_sync_status');
+function syncAllAS2() {
+  const st = document.getElementById('as2_sync_status');
   if (!getApiKey()) { toast('Chưa nhập API Key','#ef4444'); return; }
   st.innerHTML='<span class="spin"></span> Đang sync tất cả...';
-  fetch('/r503/sync-from-db', {method:'POST', headers: authHeaders()})
+  fetch('/as608-2/sync-from-db', {method:'POST', headers: authHeaders()})
   .then(r=>r.text()).then(d=>{st.innerText=d;toast(d,'#8b5cf6');})
   .catch(()=>{st.innerText='Lỗi';toast('Lỗi','#ef4444');});
 }
 
-function loadR503Users() {
-  fetch('/r503/users').then(r=>r.json()).then(data=>{
+function loadAS2Users() {
+  fetch('/as608-2/users').then(r=>r.json()).then(data=>{
     if (!data.length) {
-      document.getElementById('r503_list').innerHTML='<div class="empty">Chưa có user nào</div>';
+      document.getElementById('as2_list').innerHTML='<div class="empty">Chưa có user nào</div>';
       return;
     }
-    document.getElementById('r503_list').innerHTML=data.map(u=>`
+    document.getElementById('as2_list').innerHTML=data.map(u=>`
       <div class="item">
         <div class="info"><b>${u.name}</b><span>Mã: ${u.code} · Slot: ${u.slot}</span></div>
         <div class="acts">
-          <input class="edit-in" id="rs_e_${u.slot}" value="${u.name}">
-          <button class="btn update" style="padding:5px 10px;font-size:12px" onclick="updateRS(${u.slot})">Sửa</button>
-          <button class="btn delete" style="padding:5px 10px;font-size:12px" onclick="deleteRS(${u.slot},'${u.code}')">Xóa</button>
+          <input class="edit-in" id="as2_e_${u.slot}" value="${u.name}">
+          <button class="btn update" style="padding:5px 10px;font-size:12px" onclick="updateAS2(${u.slot})">Sửa</button>
+          <button class="btn delete" style="padding:5px 10px;font-size:12px" onclick="deleteAS2(${u.slot},'${u.code}')">Xóa</button>
         </div>
       </div>`).join('');
   }).catch(()=>{
-    document.getElementById('r503_list').innerHTML='<div class="empty" style="color:#ef4444">Lỗi tải dữ liệu</div>';
+    document.getElementById('as2_list').innerHTML='<div class="empty" style="color:#ef4444">Lỗi tải dữ liệu</div>';
   });
 }
 
-function updateRS(slot) {
-  const name = document.getElementById('rs_e_'+slot).value;
-  fetch('/r503/update', {
+function updateAS2(slot) {
+  const name = document.getElementById('as2_e_'+slot).value;
+  fetch('/as608-2/update', {
     method:'POST',
     headers: authHeaders({'Content-Type':'application/x-www-form-urlencoded'}),
     body:'slot='+slot+'&name='+encodeURIComponent(name)
-  }).then(r=>r.text()).then(d=>{toast(d,'#22c55e');loadR503Users();});
+  }).then(r=>r.text()).then(d=>{toast(d,'#22c55e');loadAS2Users();});
 }
 
-function deleteRS(slot, code) {
+function deleteAS2(slot, code) {
   if (!confirm('Xóa slot '+slot+'?')) return;
-  fetch('/r503/delete', {
+  fetch('/as608-2/delete', {
     method:'POST',
     headers: authHeaders({'Content-Type':'application/x-www-form-urlencoded'}),
     body:'slot='+slot+'&code='+encodeURIComponent(code)
-  }).then(r=>r.text()).then(d=>{toast(d,'#22c55e');loadR503Users();});
+  }).then(r=>r.text()).then(d=>{toast(d,'#22c55e');loadAS2Users();});
 }
 
 // =========================================
@@ -648,10 +641,10 @@ function deleteRFID(id) {
 // LOG
 // =========================================
 const logMethodBadge = {
-  'as608':  '<span class="badge b-blue">AS608</span>',
-  'r503':   '<span class="badge b-purple">R503</span>',
-  'rfid':   '<span class="badge b-cyan">RFID</span>',
-  'remote': '<span class="badge b-orange">Remote</span>',
+  'as608-1': '<span class="badge b-blue">AS608 #1</span>',
+  'as608-2': '<span class="badge b-purple">AS608 #2</span>',
+  'rfid':    '<span class="badge b-cyan">RFID</span>',
+  'remote':  '<span class="badge b-orange">Remote</span>',
 };
 
 function setLogFilter(f, btn) {
@@ -668,13 +661,14 @@ function loadLog() {
     const el = document.getElementById('log_list');
     if (!data.length) { el.innerHTML='<div class="empty">Chưa có log nào</div>'; return; }
     el.innerHTML = data.map(l=>{
-      const badge = logMethodBadge[l.method] || '';
+      const methodKey = l.method || currentLogFilter;
+      const badge = logMethodBadge[methodKey] || '';
       return `
         <div class="log-item ${l.granted?'ok':'err'}">
           <div style="font-size:18px">${l.granted?'✅':'❌'}</div>
           <div class="log-info">
             <b>${l.name||'Unknown'} ${badge}</b>
-            <span>${l.code?' Mã: '+l.code:''} ${l.uid?' · UID: '+l.uid:''}</span>
+            <span>${l.slot?'Slot: '+l.slot:''} ${l.uid?' · UID: '+l.uid:''}</span>
           </div>
           <div class="log-time">${l.time||''}</div>
         </div>`;
@@ -685,7 +679,7 @@ function loadLog() {
 }
 
 // =========================================
-// DATABASE — hiển thị 2 template riêng biệt
+// DATABASE
 // =========================================
 function loadDbUsers() {
   // Dùng /api/users/all qua proxy để lấy cả 2 cột fingerprint
@@ -696,7 +690,6 @@ function loadDbUsers() {
     }
     document.getElementById('db_user_list').innerHTML=data.map(u=>{
       const hasAS = u.fingerprint_as608 && u.fingerprint_as608.length > 0;
-      const hasRS = u.fingerprint_r503  && u.fingerprint_r503.length  > 0;
       const sensors = u.sensors || '—';
       return `
         <div class="item">
@@ -705,7 +698,6 @@ function loadDbUsers() {
             <span>Mã: ${u.code||'—'} · Slot: ${u.slot||'—'} · <span class="badge b-blue">${sensors}</span></span>
             <div class="fp-row">
               <span class="fp-chip ${hasAS?'fp-ok':'fp-no'}">AS608 ${hasAS?'✓':'✗'}</span>
-              <span class="fp-chip ${hasRS?'fp-ok':'fp-no'}">R503 ${hasRS?'✓':'✗'}</span>
             </div>
           </div>
           <div class="acts">

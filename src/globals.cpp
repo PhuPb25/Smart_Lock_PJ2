@@ -8,17 +8,16 @@ WebServer server(80);
 Preferences prefs;
 
 // =========================================
-// AS608 — UART1 (RX=17, TX=18)
+// AS608 #1 — UART1 (RX=17, TX=18)
 // =========================================
-HardwareSerial fpSerialAS(1);
-Adafruit_Fingerprint fingerAS(&fpSerialAS);
+HardwareSerial fpSerialAS1(1);
+Adafruit_Fingerprint fingerAS1(&fpSerialAS1);
 
 // =========================================
-// R503 — UART2 (RX=15, TX=16)
-// Thư viện Adafruit_Fingerprint hỗ trợ R503 sẵn
+// AS608 #2 — UART2 (RX=15, TX=16)
 // =========================================
-HardwareSerial fpSerialRS(2);
-R503 r503(fpSerialRS);
+HardwareSerial fpSerialAS2(2);
+Adafruit_Fingerprint fingerAS2(&fpSerialAS2);
 
 // =========================================
 // LED & RFID
@@ -29,18 +28,16 @@ MFRC522 rfid(SS_PIN, RST_PIN);
 // =========================================
 // TRẠNG THÁI
 // =========================================
-bool isEnrollingAS  = false;
-bool isEnrollingRS  = false;
+bool isEnrolling   = false;
 bool isScanningRFID = false;
 
 // =========================================
-// Kiểm tra X-API-Key header
-// Trả về true nếu hợp lệ, false (và tự gửi 401) nếu không.
+// AUTH
 // =========================================
 bool checkApiKey() {
     String storedKey = prefs.getString("api_key", "");
     if (storedKey.length() == 0) {
-        Serial.println("[auth] CẢNH BÁO: api_key chưa được thiết lập!");
+        Serial.println("[auth] CẢNH BÁO: api_key chưa thiết lập!");
         return true;
     }
     String sentKey = server.header("X-API-Key");

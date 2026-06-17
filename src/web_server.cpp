@@ -9,42 +9,43 @@
 #include <ArduinoJson.h>
 
 // =========================================
-// HELPER — Gửi JSON log (mới nhất trước)
+// TRẠNG THÁI ENROLL — tách biệt cho 2 sensor
 // =========================================
-static void sendLogJson(AccessLog* log, int logIndex) {
-    JsonDocument doc;
-    JsonArray arr = doc.to<JsonArray>();
+bool isEnrollingAS1 = false;
+bool isEnrollingAS2 = false;
 
-    int count = min(logIndex, 20);
-
-    // Duyệt từ entry mới nhất (logIndex-1) về entry cũ nhất
-    for (int i = 0; i < count; i++) {
-        int idx = (logIndex - 1 - i + 20) % 20;
-        char buffer[30];
-        struct tm* timeinfo = localtime(&log[idx].timestamp);
-        strftime(buffer, sizeof(buffer), "%H:%M:%S - %d/%m/%Y", timeinfo);
-
-        JsonObject entry = arr.add<JsonObject>();
-        entry["slot"]    = log[idx].id;
-        entry["uid"]     = log[idx].uid;
-        entry["name"]    = log[idx].name;
-        entry["granted"] = log[idx].granted;
-        entry["time"]    = String(buffer);
+// ====================================================================
+// HELPER — Hàm trung gian lấy Log từ Server DB và trả về cho Web Client
+// ====================================================================
+static void forwardLogFromServer(const String& sensorName) {
+    if (WiFi.status() != WL_CONNECTED) {
+        server.send(503, "application/json", "{\"error\":\"Mất kết nối WiFi\"}");
+        return;
     }
 
-    String json;
-    serializeJson(doc, json);
-    server.send(200, "application/json", json);
+    HTTPClient http;
+    // Gọi đến API lấy log của Server Node.js kèm tham số lọc sensor
+    http.begin(getServerBase() + "/api/log?sensor=" + sensorName);
+    
+    int httpCode = http.GET();
+    if (httpCode == 200) {
+        // Đọc toàn bộ chuỗi JSON trả về từ DB và gửi thẳng cho trình duyệt
+        server.send(200, "application/json", http.getString());
+    } else {
+        Serial.printf("[Web] Lấy log từ DB thất bại, mã lỗi: %d\n", httpCode);
+        server.send(httpCode, "application/json", "{\"error\":\"Không thể lấy log từ Database\"}");
+    }
+    http.end();
 }
 
 // =========================================
-// HELPER — Gửi JSON users
+// HELPER — Gửi JSON users theo prefix Preferences
 // =========================================
 static void sendUsersJson(const String& prefix) {
     JsonDocument doc;
     JsonArray arr = doc.to<JsonArray>();
 
-    for (int slot = 0; slot <= 199; slot++) {
+    for (int slot = 1; slot <= 127; slot++) {
         String key = prefix + "user_" + String(slot);
         if (prefs.isKey(key.c_str())) {
             String name = prefs.getString(key.c_str());
@@ -190,74 +191,72 @@ void setupWebServer() {
     });
 
     // =========================================
-    // AS608 — ENROLL (yêu cầu API key)
+    // AS608 #1 — ENROLL (yêu cầu API key)
     // =========================================
-    server.on("/as608/enroll", HTTP_POST, []() {
+    server.on("/as608-1/enroll", HTTP_POST, []() {
         REQUIRE_API_KEY();
         String name = server.arg("name");
         String code = server.arg("code");
         if (name.isEmpty() || code.isEmpty()) { server.send(400, "text/plain", "Thiếu name/code"); return; }
 
-        if (isEnrollingAS) {
-            server.send(400, "text/plain", "[AS608] Đang enroll rồi!");
+        if (isEnrollingAS1) {
+            server.send(400, "text/plain", "[AS608-1] Đang enroll rồi!");
+            return;
+        }
+        if (prefs.getInt(("as1_slot_" + code).c_str(), -1) != -1) {
+            server.send(400, "text/plain", "[AS608-1] Mã số đã tồn tại trên cảm biến 1, xóa trước rồi enroll lại");
             return;
         }
 
-        // Kiểm tra code đã tồn tại chưa
-        if (prefs.getInt(("as_slot_" + code).c_str(), -1) != -1) {
-            server.send(400, "text/plain", "[AS608] Mã số đã tồn tại, xóa trước rồi enroll lại");
-            return;
-        }
-
-        isEnrollingAS = true;
-        uint8_t result = enrollFinger(name, code, 0);
-        isEnrollingAS = false;
+        isEnrollingAS1 = true;
+        uint8_t result = enrollFinger(name, code, 0);  // sensorIdx=0
+        isEnrollingAS1 = false;
 
         if (result != 0xFF && result != FINGERPRINT_TIMEOUT && result != FINGERPRINT_BADLOCATION) {
-            server.send(200, "text/plain", "[AS608] Thêm thành công (slot " + String(result) + ")");
+            server.send(200, "text/plain", "[AS608-1] Thêm thành công (slot " + String(result) + ")");
         } else {
-            server.send(500, "text/plain", "[AS608] Enroll thất bại: " + String(result));
+            server.send(500, "text/plain", "[AS608-1] Enroll thất bại: " + String(result));
         }
     });
 
-    // AS608 — DANH SÁCH USER (public)
-    server.on("/as608/users", HTTP_GET, []() {
-        sendUsersJson("as_");
+    // AS608 #1 — DANH SÁCH USER (public)
+    server.on("/as608-1/users", HTTP_GET, []() {
+        sendUsersJson("as1_");
     });
 
-    // AS608 — XÓA USER (yêu cầu API key)
-    server.on("/as608/delete", HTTP_POST, []() {
+    // AS608 #1 — XÓA USER (yêu cầu API key)
+    server.on("/as608-1/delete", HTTP_POST, []() {
         REQUIRE_API_KEY();
-        int slot = server.arg("slot").toInt();
+        int slot    = server.arg("slot").toInt();
         String code = server.arg("code");
 
         if (slot < 1 || slot > 127) { server.send(400, "text/plain", "Slot không hợp lệ"); return; }
 
-        fingerAS.deleteModel(slot);
-        prefs.remove(("as_user_" + String(slot)).c_str());
-        prefs.remove(("as_code_" + String(slot)).c_str());
-        if (code.length() > 0) prefs.remove(("as_slot_" + code).c_str());
+        fingerAS1.deleteModel(slot);
+        prefs.remove(("as1_user_" + String(slot)).c_str());
+        prefs.remove(("as1_code_" + String(slot)).c_str());
+        if (code.length() > 0) prefs.remove(("as1_slot_" + code).c_str());
 
-        server.send(200, "text/plain", "[AS608] Đã xóa slot " + String(slot));
+        server.send(200, "text/plain", "[AS608-1] Đã xóa slot " + String(slot));
     });
 
-    // AS608 — CẬP NHẬT TÊN (yêu cầu API key)
-    server.on("/as608/update", HTTP_POST, []() {
+    // AS608 #1 — CẬP NHẬT TÊN (yêu cầu API key)
+    server.on("/as608-1/update", HTTP_POST, []() {
         REQUIRE_API_KEY();
         int slot    = server.arg("slot").toInt();
         String name = server.arg("name");
         if (slot < 1 || slot > 127) { server.send(400, "text/plain", "Slot không hợp lệ"); return; }
-        prefs.putString(("as_user_" + String(slot)).c_str(), name);
-        server.send(200, "text/plain", "[AS608] Đã cập nhật");
+        prefs.putString(("as1_user_" + String(slot)).c_str(), name);
+        server.send(200, "text/plain", "[AS608-1] Đã cập nhật");
     });
 
-    // AS608 — LOG (public)
-    server.on("/as608/log", HTTP_GET, []() {
-        sendLogJson(logAS, logIndexAS);
+    // AS608 #1 — LOG (public) -> Lấy từ DB
+    server.on("/as608-1/log", HTTP_GET, []() {
+        forwardLogFromServer("AS608-1");
     });
 
-    // AS608 — SYNC TỪ DB (yêu cầu API key)
-    server.on("/as608/sync-from-db", HTTP_POST, []() {
+    // AS608 #1 — SYNC TỪ DB (yêu cầu API key)
+    server.on("/as608-1/sync-from-db", HTTP_POST, []() {
         REQUIRE_API_KEY();
         if (WiFi.status() != WL_CONNECTED) { server.send(503, "text/plain", "Không có WiFi"); return; }
 
@@ -271,91 +270,88 @@ void setupWebServer() {
         }
 
         if (targetCode.length() > 0) {
-            server.send(200, "text/plain", "[AS608] Đang sync code=" + targetCode);
+            server.send(200, "text/plain", "[AS608-1] Đang sync code=" + targetCode);
             syncUserFromServer(targetCode, 0);
         } else {
-            server.send(200, "text/plain", "[AS608] Đang đồng bộ tất cả...");
+            server.send(200, "text/plain", "[AS608-1] Đang đồng bộ tất cả...");
             syncFromServer(0);
         }
     });
 
+    // AS608 #1 — XÓA TOÀN BỘ (yêu cầu API key)
+    server.on("/as608-1/clear", HTTP_POST, []() {
+        REQUIRE_API_KEY();
+        emptyDatabaseAS1();
+        server.send(200, "text/plain", "[AS608-1] Đã xóa toàn bộ");
+    });
+
     // =========================================
-    // R503 — ENROLL (yêu cầu API key)
+    // AS608 #2 — ENROLL (yêu cầu API key)
     // =========================================
-    server.on("/r503/enroll", HTTP_POST, []() {
+    server.on("/as608-2/enroll", HTTP_POST, []() {
         REQUIRE_API_KEY();
         String name = server.arg("name");
         String code = server.arg("code");
         if (name.isEmpty() || code.isEmpty()) { server.send(400, "text/plain", "Thiếu name/code"); return; }
 
-        if (isEnrollingRS) {
-            server.send(400, "text/plain", "[R503] Đang enroll rồi!");
+        if (isEnrollingAS2) {
+            server.send(400, "text/plain", "[AS608-2] Đang enroll rồi!");
+            return;
+        }
+        if (prefs.getInt(("as2_slot_" + code).c_str(), -1) != -1) {
+            server.send(400, "text/plain", "[AS608-2] Mã số đã tồn tại trên cảm biến 2, xóa trước rồi enroll lại");
             return;
         }
 
-        if (prefs.getInt(("rs_slot_" + code).c_str(), -1) != -1) {
-            server.send(400, "text/plain", "[R503] Mã số đã tồn tại, xóa trước rồi enroll lại");
-            return;
-        }
-
-        isEnrollingRS = true;
-        uint8_t result = enrollFinger(name, code, 1);
-        isEnrollingRS = false;
+        isEnrollingAS2 = true;
+        uint8_t result = enrollFinger(name, code, 1);  // sensorIdx=1
+        isEnrollingAS2 = false;
 
         if (result != 0xFF && result != FINGERPRINT_TIMEOUT && result != FINGERPRINT_BADLOCATION) {
-            server.send(200, "text/plain", "[R503] Thêm thành công (slot " + String(result) + ")");
+            server.send(200, "text/plain", "[AS608-2] Thêm thành công (slot " + String(result) + ")");
         } else {
-            server.send(500, "text/plain", "[R503] Enroll thất bại: " + String(result));
+            server.send(500, "text/plain", "[AS608-2] Enroll thất bại: " + String(result));
         }
     });
-    
-    // R503 — DANH SÁCH USER (public)  ← ĐÃ THÊM
-    server.on("/r503/users", HTTP_GET, []() {
-        sendUsersJson("rs_");
+
+    // AS608 #2 — DANH SÁCH USER (public)
+    server.on("/as608-2/users", HTTP_GET, []() {
+        sendUsersJson("as2_");
     });
 
-    // R503 — DANH SÁCH USER (public)
-    server.on("/r503/delete", HTTP_POST, []() {
+    // AS608 #2 — XÓA USER (yêu cầu API key)
+    server.on("/as608-2/delete", HTTP_POST, []() {
         REQUIRE_API_KEY();
         int slot    = server.arg("slot").toInt();
         String code = server.arg("code");
 
-        if (slot < 0 || slot > 199) { 
-            server.send(400, "text/plain", "Slot không hợp lệ"); 
-            return; 
-        }
+        if (slot < 1 || slot > 127) { server.send(400, "text/plain", "Slot không hợp lệ"); return; }
 
-        // Xóa trên cảm biến R503
-        if (r503.deleteTemplate(slot)) {
-            // Xóa thông tin Preferences
-            prefs.remove(("rs_user_" + String(slot)).c_str());
-            prefs.remove(("rs_code_" + String(slot)).c_str());
-            if (code.length() > 0) prefs.remove(("rs_slot_" + code).c_str());
+        fingerAS2.deleteModel(slot);
+        prefs.remove(("as2_user_" + String(slot)).c_str());
+        prefs.remove(("as2_code_" + String(slot)).c_str());
+        if (code.length() > 0) prefs.remove(("as2_slot_" + code).c_str());
 
-            Serial.printf("[R503] ✅ Đã xóa slot %d hoàn tất\n", slot);
-            server.send(200, "text/plain", "[R503] Đã xóa slot " + String(slot));
-        } else {
-            server.send(500, "text/plain", "[R503] Xóa template trên cảm biến thất bại");
-        }
+        server.send(200, "text/plain", "[AS608-2] Đã xóa slot " + String(slot));
     });
 
-    // R503 — CẬP NHẬT TÊN (yêu cầu API key)
-    server.on("/r503/update", HTTP_POST, []() {
+    // AS608 #2 — CẬP NHẬT TÊN (yêu cầu API key)
+    server.on("/as608-2/update", HTTP_POST, []() {
         REQUIRE_API_KEY();
         int slot    = server.arg("slot").toInt();
         String name = server.arg("name");
         if (slot < 1 || slot > 127) { server.send(400, "text/plain", "Slot không hợp lệ"); return; }
-        prefs.putString(("rs_user_" + String(slot)).c_str(), name);
-        server.send(200, "text/plain", "[R503] Đã cập nhật");
+        prefs.putString(("as2_user_" + String(slot)).c_str(), name);
+        server.send(200, "text/plain", "[AS608-2] Đã cập nhật");
     });
 
-    // R503 — LOG (public)
-    server.on("/r503/log", HTTP_GET, []() {
-        sendLogJson(logRS, logIndexRS);
+    // AS608 #2 — LOG (public) -> Lấy từ DB
+    server.on("/as608-2/log", HTTP_GET, []() {
+        forwardLogFromServer("AS608-2");
     });
 
-    // R503 — SYNC TỪ DB (yêu cầu API key)
-    server.on("/r503/sync-from-db", HTTP_POST, []() {
+    // AS608 #2 — SYNC TỪ DB (yêu cầu API key)
+    server.on("/as608-2/sync-from-db", HTTP_POST, []() {
         REQUIRE_API_KEY();
         if (WiFi.status() != WL_CONNECTED) { server.send(503, "text/plain", "Không có WiFi"); return; }
 
@@ -369,26 +365,33 @@ void setupWebServer() {
         }
 
         if (targetCode.length() > 0) {
-            server.send(200, "text/plain", "[R503] Đang sync code=" + targetCode);
+            server.send(200, "text/plain", "[AS608-2] Đang sync code=" + targetCode);
             syncUserFromServer(targetCode, 1);
         } else {
-            server.send(200, "text/plain", "[R503] Đang đồng bộ tất cả...");
+            server.send(200, "text/plain", "[AS608-2] Đang đồng bộ tất cả...");
             syncFromServer(1);
         }
+    });
+
+    // AS608 #2 — XÓA TOÀN BỘ (yêu cầu API key)
+    server.on("/as608-2/clear", HTTP_POST, []() {
+        REQUIRE_API_KEY();
+        emptyDatabaseAS2();
+        server.send(200, "text/plain", "[AS608-2] Đã xóa toàn bộ");
     });
 
     // =========================================
     // SYNC STATUS — public
     // =========================================
     server.on("/sync-status", HTTP_GET, []() {
-        int countAS = 0, countRS = 0;
+        int countAS1 = 0, countAS2 = 0;
         for (int i = 1; i <= 127; i++) {
-            if (prefs.isKey(("as_user_" + String(i)).c_str())) countAS++;
-            if (prefs.isKey(("rs_user_" + String(i)).c_str())) countRS++;
+            if (prefs.isKey(("as1_user_" + String(i)).c_str())) countAS1++;
+            if (prefs.isKey(("as2_user_" + String(i)).c_str())) countAS2++;
         }
         JsonDocument doc;
-        doc["as608"] = countAS;
-        doc["r503"]  = countRS;
+        doc["as608_1"] = countAS1;
+        doc["as608_2"] = countAS2;
         String json; serializeJson(doc, json);
         server.send(200, "application/json", json);
     });
@@ -405,7 +408,26 @@ void setupWebServer() {
             return;
         }
         if (token == storedToken) {
-            logAccessAS(255, "", "Remote", true, "");
+            // Đẩy log trực tiếp lên DB Server thay vì gọi hàm log cục bộ
+            if (WiFi.status() == WL_CONNECTED) {
+                HTTPClient http;
+                http.begin(getServerBase() + "/api/log");
+                http.addHeader("Content-Type", "application/json");
+
+                JsonDocument doc;
+                doc["slot"]    = 255;
+                doc["uid"]     = "";
+                doc["name"]    = "Remote";
+                doc["code"]    = "";
+                doc["granted"] = true;
+                doc["sensor"]  = "REMOTE";
+
+                String payload;
+                serializeJson(doc, payload);
+                http.POST(payload);
+                http.end();
+            }
+            
             openLock();
             server.send(200, "application/json", "{\"status\":\"unlocked\"}");
         } else {
@@ -522,29 +544,12 @@ void setupWebServer() {
     });
 
     // =========================================
-    // LOG PROXY
+    // LOG PROXY — Chuyển tiếp toàn bộ yêu cầu về DB Server
     // =========================================
     server.on("/log-proxy", HTTP_GET, []() {
         String sensor = server.arg("sensor");
-        if (sensor == "as608") {
-            sendLogJson(logAS, logIndexAS);
-        } else if (sensor == "r503") {
-            sendLogJson(logRS, logIndexRS);
-        } else {
-            if (WiFi.status() == WL_CONNECTED) {
-                HTTPClient http;
-                http.begin(getServerBase() + "/api/log?sensor=" + sensor);
-                int code = http.GET();
-                if (code == 200) {
-                    server.send(200, "application/json", http.getString());
-                } else {
-                    server.send(500, "text/plain", "Proxy log error");
-                }
-                http.end();
-            } else {
-                server.send(503, "text/plain", "No WiFi");
-            }
-        }
+        if (sensor.length() == 0) sensor = "all";
+        forwardLogFromServer(sensor);
     });
 
     server.begin();
