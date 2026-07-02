@@ -5,24 +5,19 @@
 #include "rfid.h"
 #include "web_server.h"
 #include "secrets.h"
-
 #include <Arduino.h>
 #include <SPI.h>
 #include <time.h>
+#include "oled.h"         
 
-// =========================================
-// PIN CẤU HÌNH
-// =========================================
-#define AS1_RX_PIN  17
-#define AS1_TX_PIN  18
-#define AS2_RX_PIN  15
-#define AS2_TX_PIN  16
 
 static void initAS1();
 static void initAS2();
 static void initRFID();
 static void initWiFi();
 static void initNTP();
+static void updateOledCounts();
+
 
 // =========================================
 // SETUP
@@ -32,24 +27,35 @@ void setup() {
 
     prefs.begin("users", false);
     initSecrets();
-
+    oledSetup();
+    
     initAS1();
     initAS2();
     initRFID();
+    
 
-    pixels.begin();
-    pixels.clear();
-    pixels.show();
+    // pixels.begin();
+    // pixels.clear();
+    // pixels.show();
 
     loadRFID();
-    prefs.clear();
-    emptyDatabaseAS1();
-    emptyDatabaseAS2();
+
+    // prefs.clear();
+    // emptyDatabaseAS1();
+    // emptyDatabaseAS2();
+
     pinMode(RELAY_PIN, OUTPUT);
     digitalWrite(RELAY_PIN, LOW);
 
     initWiFi();
-    if (WiFi.status() == WL_CONNECTED) initNTP();
+    if (WiFi.status() == WL_CONNECTED) {
+        initNTP();
+    } else {
+        oledShow(OLED_NO_WIFI);
+    }
+    // Cập nhật số liệu lên OLED lần đầu
+    updateOledCounts();            
+    oledShow(OLED_IDLE);
 
     setupWebServer();
     Serial.println("=== He thong san sang ===");
@@ -61,6 +67,8 @@ void setup() {
 // =========================================
 void loop() {
     server.handleClient();
+    oledLoop();   
+    updateOledCounts();
 
     static unsigned long lastSensorCheck = 0;
     if (!isEnrolling && !isScanningRFID) {
@@ -143,4 +151,17 @@ static void initNTP() {
     } else {
         Serial.println("\nNTP timeout");
     }
+}
+
+// =========================================
+// CẬP NHẬT SỐ LIỆU LÊN OLED
+// Đếm số user trong PrefupdateOledCountserences theo prefix
+// =========================================
+static void updateOledCounts() {
+    int as1 = 0, as2 = 0;
+    for (int i = 1; i <= 127; i++) {
+        if (prefs.isKey(("as1_user_" + String(i)).c_str())) as1++;
+        if (prefs.isKey(("as2_user_" + String(i)).c_str())) as2++;
+    }
+    oledSetCounts(as1, as2, rfidCount);
 }

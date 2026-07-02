@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Lock Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+<!-- =========================================
+     NAV
+     ========================================= -->
+<div class="nav">
+  <button onclick="showTab('home',this)" class="active">🏠 Home</button>
+  <button onclick="showTab('as608_1',this)">👁 AS608 #1</button>
+  <button onclick="showTab('as608_2',this)">👁 AS608 #2</button>
+  <button onclick="showTab('rfid',this)">📡 RFID</button>
+  <button onclick="showTab('log',this)">📜 Log</button>
+  <button onclick="showTab('db',this)">☁️ Server</button>
+  <button onclick="showTab('settings',this)">⚙️ Cài đặt</button>
+</div>
+
+<!-- =========================================
+     HOME
+     ========================================= -->
+<div id="home" class="tab active">
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-num" id="stat-as1" style="color:#3b82f6">—</div>
+      <div class="stat-lbl">AS608 #1 users</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="stat-as2" style="color:#8b5cf6">—</div>
+      <div class="stat-lbl">AS608 #2 users</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="stat-rfid" style="color:#22c55e">—</div>
+      <div class="stat-lbl">Thẻ RFID</div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>🔓 Mở khóa từ xa</h2>
+      <div class="lock-wrap">
+        <div class="lock-circle" id="lockIcon">🔒</div>
+      </div>
+      <input type="password" id="unlock_token" placeholder="Nhập token...">
+      <button class="btn open" style="width:100%;margin-top:8px" onclick="unlock()">🔓 MỞ KHÓA</button>
+    </div>
+
+    <div class="card">
+      <h2>☁️ Đồng bộ từ server</h2>
+      <p class="note">Kéo toàn bộ vân tay từ database về thiết bị. Chọn cảm biến cần sync.</p>
+      <div class="stab-row" style="margin-top:10px">
+        <button class="stab active" id="syncTab0" onclick="setSyncSensor(0)">AS608 #1</button>
+        <button class="stab"        id="syncTab1" onclick="setSyncSensor(1)">AS608 #2</button>
+      </div>
+      <button class="btn enroll" id="syncBtn" style="width:100%" onclick="syncFromDB()">↓ SYNC TẤT CẢ</button>
+      <div class="prog-wrap"><div class="prog-bar" id="syncProgress"></div></div>
+      <div class="status" id="syncStatus"></div>
+    </div>
+  </div>
+</div>
+
+<!-- =========================================
+     AS608 #1
+     ========================================= -->
+<div id="as608_1" class="tab">
+  <div class="grid2">
+    <div class="card">
+      <h2>➕ Enroll vân tay AS608 #1</h2>
+      <input type="text" id="as1_code" placeholder="Mã số (VD: SV001)">
+      <input type="text" id="as1_name" placeholder="Tên người dùng">
+      <button class="btn enroll" onclick="enrollAS1()">+ ENROLL</button>
+      <div class="status" id="as1_enroll_status"></div>
+    </div>
+    <div class="card">
+      <h2>☁️ Sync từ server</h2>
+      <input type="text" id="as1_sync_code" placeholder="Mã số cần sync (để trống = tất cả)">
+      <button class="btn yellow" onclick="syncOneAS1()">↓ Sync 1 user</button>
+      <button class="btn ghost"  onclick="syncAllAS1()">↓ Sync tất cả</button>
+      <div class="status" id="as1_sync_status"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>
+      👤 Danh sách user AS608 #1
+      <button class="btn ghost" style="padding:5px 10px;font-size:11px;margin-left:auto" onclick="loadAS1Users()">↻ Làm mới</button>
+    </h2>
+    <div id="as1_list"><div class="empty">Đang tải...</div></div>
+  </div>
+</div>
+
+<!-- =========================================
+     AS608 #2
+     ========================================= -->
+<div id="as608_2" class="tab">
+  <div class="grid2">
+    <div class="card">
+      <h2>➕ Enroll vân tay AS608 #2</h2>
+      <input type="text" id="as2_code" placeholder="Mã số (VD: SV001)">
+      <input type="text" id="as2_name" placeholder="Tên người dùng">
+      <button class="btn purple" onclick="enrollAS2()">+ ENROLL</button>
+      <div class="status" id="as2_enroll_status"></div>
+    </div>
+    <div class="card">
+      <h2>☁️ Sync từ server</h2>
+      <input type="text" id="as2_sync_code" placeholder="Mã số cần sync (để trống = tất cả)">
+      <button class="btn yellow" onclick="syncOneAS2()">↓ Sync 1 user</button>
+      <button class="btn ghost"  onclick="syncAllAS2()">↓ Sync tất cả</button>
+      <div class="status" id="as2_sync_status"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>
+      👤 Danh sách user AS608 #2
+      <button class="btn ghost" style="padding:5px 10px;font-size:11px;margin-left:auto" onclick="loadAS2Users()">↻ Làm mới</button>
+    </h2>
+    <div id="as2_list"><div class="empty">Đang tải...</div></div>
+  </div>
+</div>
+
+<!-- =========================================
+     RFID
+     ========================================= -->
+<div id="rfid" class="tab">
+  <div class="card">
+    <h2>📡 Thêm thẻ RFID</h2>
+    <input type="text" id="rfid_uid"  placeholder="UID (VD: D1F44453)">
+    <input type="text" id="rfid_name" placeholder="Tên người dùng">
+    <button class="btn scan" onclick="scanRFID()">📡 Quét thẻ</button>
+    <button class="btn open" onclick="addRFID()">+ ADD</button>
+    <div class="status" id="rfid_add_status"></div>
+  </div>
+  <div class="card">
+    <h2>
+      📋 Danh sách thẻ
+      <button class="btn ghost" style="padding:5px 10px;font-size:11px;margin-left:auto" onclick="loadRFIDList()">↻ Làm mới</button>
+    </h2>
+    <div id="rfid_list"><div class="empty">Đang tải...</div></div>
+  </div>
+</div>
+
+<!-- =========================================
+     LOG
+     ========================================= -->
+<div id="log" class="tab">
+  <div class="card">
+    <h2>📜 Lịch sử truy cập</h2>
+    <div class="filter-row">
+      <button class="ftab active" onclick="setLogFilter('as608-1',this)">AS608 #1</button>
+      <button class="ftab"        onclick="setLogFilter('as608-2',this)">AS608 #2</button>
+      <button class="ftab"        onclick="setLogFilter('rfid',this)">RFID</button>
+      <button class="ftab"        onclick="setLogFilter('remote',this)">Remote</button>
+    </div>
+    <button class="btn ghost" style="margin-bottom:10px;font-size:12px" onclick="loadLog()">↻ Làm mới</button>
+    <div id="log_list"><div class="empty">Đang tải...</div></div>
+    <div style="margin:10px 0;display:flex;gap:10px;align-items:center;">
+      <label for="log_date_filter" style="font-size:14px;color:#94a3b8;">Chọn ngày:</label>
+      <input type="date" id="log_date_filter" onchange="refreshCurrentLogs()"
+             style="background:#1e293b;color:white;border:1px solid #334155;padding:6px 10px;border-radius:6px;outline:none;">
+    </div>
+  </div>
+</div>
+
+<!-- =========================================
+     SERVER / DATABASE
+     ========================================= -->
+<div id="db" class="tab">
+  <div class="card">
+    <h2>
+      ☁️ Users trên server
+      <button class="btn ghost" style="padding:5px 10px;font-size:11px;margin-left:auto" onclick="loadDbUsers()">↻</button>
+    </h2>
+    <div id="db_user_list"><div class="empty">Đang tải...</div></div>
+  </div>
+  <div class="card">
+    <h2>
+      📡 RFID trên server
+      <button class="btn ghost" style="padding:5px 10px;font-size:11px;margin-left:auto" onclick="loadDbRfid()">↻</button>
+    </h2>
+    <div id="db_rfid_list"><div class="empty">Đang tải...</div></div>
+  </div>
+</div>
+
+<!-- =========================================
+     SETTINGS
+     ========================================= -->
+<div id="settings" class="tab">
+  <div class="card">
+    <h2>🔑 API Key</h2>
+    <p class="note">API Key bảo vệ các thao tác ghi (enroll, xóa, sync). Lưu key này và điền vào mỗi lần dùng giao diện trên trình duyệt mới.</p>
+    <input type="password" id="api_key_input" placeholder="Nhập API Key của thiết bị...">
+    <button class="btn enroll" onclick="saveApiKey()">💾 Lưu key</button>
+    <div class="status" id="key_status"></div>
+  </div>
+  <div class="card">
+    <h2>🌐 Địa chỉ server Node.js</h2>
+    <p class="note">Địa chỉ IP máy chủ chạy server.js (thay đổi khi IP thay đổi).</p>
+    <input type="text" id="server_ip_input" placeholder="VD: 192.168.1.2">
+    <button class="btn yellow" onclick="updateServerIP()">🔄 Cập nhật IP</button>
+    <div class="status" id="ip_status"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script src="index.js"></script>
+</body>
+</html> 

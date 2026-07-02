@@ -1,0 +1,926 @@
+#include <Arduino.h>
+
+#ifndef INDEX_HTML_H
+#define INDEX_HTML_H
+
+const char index_html[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Lock Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+* { font-family: 'Poppins', sans-serif; box-sizing: border-box; margin: 0; padding: 0; }
+body { background: linear-gradient(135deg, #0f172a, #1e293b); color: white; min-height: 100vh; }
+
+/* =========================================
+   NAV
+   ========================================= */
+.nav { display: flex; background: rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.08); overflow-x: auto; }
+.nav button { flex: 1; min-width: 90px; padding: 14px 8px; border: none; background: transparent; color: rgba(255,255,255,0.6); cursor: pointer; font-size: 12px; white-space: nowrap; transition: all .2s; }
+.nav button.active { background: #3b82f6; color: white; }
+.nav button:hover:not(.active) { background: rgba(255,255,255,0.07); color: white; }
+
+/* =========================================
+   TABS
+   ========================================= */
+.tab { display: none; padding: 15px; }
+.tab.active { display: block; }
+
+/* =========================================
+   CARDS & GRID
+   ========================================= */
+.card { background: rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; margin: 10px 0; border: 1px solid rgba(255,255,255,0.06); }
+.card h2 { font-size: 15px; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media(max-width:600px) { .grid2 { grid-template-columns: 1fr; } }
+
+/* =========================================
+   STAT CARDS (HOME)
+   ========================================= */
+.stat-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 10px; }
+@media(max-width:500px) { .stat-grid { grid-template-columns: 1fr; } }
+.stat-card { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 16px; text-align: center; border: 1px solid rgba(255,255,255,0.06); }
+.stat-num { font-size: 32px; font-weight: 600; line-height: 1; }
+.stat-lbl { font-size: 12px; opacity: .5; margin-top: 4px; }
+
+/* =========================================
+   INPUTS
+   ========================================= */
+input[type=text], input[type=password] {
+  width: 100%; padding: 10px; margin: 5px 0;
+  border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.07); color: white;
+  font-size: 13px; outline: none; transition: border-color .2s;
+}
+input[type=text]:focus, input[type=password]:focus { border-color: #3b82f6; }
+input::placeholder { color: rgba(255,255,255,0.3); }
+
+/* =========================================
+   BUTTONS
+   ========================================= */
+.btn {
+  padding: 9px 14px; border: none; border-radius: 8px; margin: 4px 2px;
+  color: white; cursor: pointer; font-size: 13px;
+  font-family: 'Poppins', sans-serif; font-weight: 500;
+  transition: opacity .15s, transform .1s;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.btn:active   { transform: scale(.97); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.open   { background: #22c55e; }
+.enroll { background: #3b82f6; }
+.purple { background: #8b5cf6; }
+.scan   { background: #06b6d4; }
+.update { background: #facc15; color: #000; }
+.delete { background: #ef4444; }
+.ghost  { background: rgba(255,255,255,0.1); }
+.yellow { background: #f59e0b; }
+.orange { background: #f97316; }
+
+/* Sub-tabs (sensor selector) */
+.stab-row { display: flex; gap: 6px; margin-bottom: 14px; }
+.stab {
+  flex: 1; padding: 8px; border: 1px solid rgba(255,255,255,0.1);
+  background: transparent; color: rgba(255,255,255,0.5); border-radius: 8px;
+  cursor: pointer; font-size: 12px; font-family: 'Poppins', sans-serif;
+  font-weight: 500; transition: all .2s;
+}
+.stab.active { background: #3b82f6; border-color: #3b82f6; color: white; }
+
+/* =========================================
+   LIST ITEMS
+   ========================================= */
+.item { background: rgba(255,255,255,0.06); padding: 12px; border-radius: 10px; margin: 6px 0; display: flex; align-items: center; gap: 10px; }
+.item .info { flex: 1; min-width: 0; font-size: 13px; }
+.item .info b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item .info span { opacity: .5; font-size: 11px; }
+.item .acts { display: flex; gap: 4px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+
+.edit-in {
+  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px; padding: 5px 8px; color: white; font-size: 12px;
+  width: 110px; outline: none;
+}
+.edit-in:focus { border-color: #3b82f6; }
+
+/* =========================================
+   LOG ITEMS
+   ========================================= */
+.log-item {
+  background: rgba(255,255,255,0.05);
+  border-left: 3px solid rgba(255,255,255,0.2);
+  padding: 10px 12px; border-radius: 0 8px 8px 0;
+  margin: 5px 0; font-size: 13px;
+  display: flex; align-items: center; gap: 10px;
+}
+.log-item.ok  { border-left-color: #22c55e; }
+.log-item.err { border-left-color: #ef4444; }
+.log-info { flex: 1; }
+.log-info b { display: block; }
+.log-info span { font-size: 11px; opacity: .5; }
+.log-time { font-size: 11px; opacity: .5; text-align: right; flex-shrink: 0; }
+
+/* =========================================
+   BADGES
+   ========================================= */
+.badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; display: inline-block; }
+.b-green  { background: rgba(34,197,94,.2);  color: #22c55e; }
+.b-red    { background: rgba(239,68,68,.2);   color: #ef4444; }
+.b-blue   { background: rgba(59,130,246,.2);  color: #93c5fd; }
+.b-purple { background: rgba(139,92,246,.2);  color: #c4b5fd; }
+.b-cyan   { background: rgba(6,182,212,.2);   color: #67e8f9; }
+.b-orange { background: rgba(249,115,22,.2);  color: #fdba74; }
+
+/* =========================================
+   STATUS & PROGRESS
+   ========================================= */
+.status { font-size: 12px; opacity: .6; margin-top: 8px; min-height: 18px; }
+.prog-wrap { height: 4px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; margin-top: 8px; }
+.prog-bar  { height: 100%; background: #3b82f6; border-radius: 4px; width: 0%; transition: width .3s; }
+
+/* =========================================
+   LOCK ICON (HOME)
+   ========================================= */
+.lock-wrap { text-align: center; padding: 20px 0 10px; }
+.lock-circle {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: rgba(59,130,246,.1); border: 2px solid #3b82f6;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 28px; margin-bottom: 12px;
+  animation: pulse 3s infinite;
+}
+@keyframes pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(59,130,246,.3); }
+  50%      { box-shadow: 0 0 0 14px rgba(59,130,246,0); }
+}
+
+/* =========================================
+   FILTER TABS (LOG)
+   ========================================= */
+.filter-row { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.ftab {
+  border: 1px solid rgba(255,255,255,0.15); background: transparent;
+  color: rgba(255,255,255,0.5); padding: 5px 14px; border-radius: 20px;
+  font-size: 12px; font-family: 'Poppins', sans-serif; cursor: pointer; transition: all .15s;
+}
+.ftab.active { background: #3b82f6; border-color: #3b82f6; color: white; }
+
+/* =========================================
+   SPINNER
+   ========================================= */
+.spin {
+  display: inline-block; width: 12px; height: 12px;
+  border: 2px solid rgba(255,255,255,.25); border-top-color: white;
+  border-radius: 50%; animation: sp .6s linear infinite; vertical-align: middle;
+}
+@keyframes sp { to { transform: rotate(360deg); } }
+
+/* =========================================
+   MISC
+   ========================================= */
+.empty { text-align: center; padding: 30px; opacity: .4; font-size: 13px; }
+.note  { font-size: 11px; opacity: .45; margin-top: 6px; line-height: 1.6; }
+
+/* Fingerprint template status chips */
+.fp-row { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+.fp-chip { font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 500; }
+.fp-ok { background: rgba(34,197,94,.15); color: #4ade80; border: 1px solid rgba(34,197,94,.3); }
+.fp-no { background: rgba(239,68,68,.1);  color: #f87171; border: 1px solid rgba(239,68,68,.2); }
+
+/* Toast notification */
+#toast {
+  position: fixed; bottom: 20px; left: 50%;
+  transform: translateX(-50%) translateY(60px);
+  padding: 10px 20px; border-radius: 10px; font-size: 13px;
+  z-index: 999; transition: transform .3s, opacity .3s;
+  opacity: 0; pointer-events: none;
+}
+#toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- =========================================
+     NAV
+     ========================================= -->
+<div class="nav">
+  <button onclick="showTab('home',this)" class="active">🏠 Home</button>
+  <button onclick="showTab('as608_1',this)">👁 AS608 #1</button>
+  <button onclick="showTab('as608_2',this)">👁 AS608 #2</button>
+  <button onclick="showTab('rfid',this)">📡 RFID</button>
+  <button onclick="showTab('log',this)">📜 Log</button>
+  <button onclick="showTab('db',this)">☁️ Server</button>
+  <button onclick="showTab('settings',this)">⚙️ Cài đặt</button>
+</div>
+
+<!-- =========================================
+     HOME
+     ========================================= -->
+<div id="home" class="tab active">
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-num" id="stat-as1" style="color:#3b82f6">—</div>
+      <div class="stat-lbl">AS608 #1 users</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="stat-as2" style="color:#8b5cf6">—</div>
+      <div class="stat-lbl">AS608 #2 users</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="stat-rfid" style="color:#22c55e">—</div>
+      <div class="stat-lbl">Thẻ RFID</div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>🔓 Mở khóa từ xa</h2>
+      <div class="lock-wrap">
+        <div class="lock-circle" id="lockIcon">🔒</div>
+      </div>
+      <input type="password" id="unlock_token" placeholder="Nhập token...">
+      <button class="btn open" style="width:100%;margin-top:8px" onclick="unlock()">🔓 MỞ KHÓA</button>
+    </div>
+
+    <div class="card">
+      <h2>☁️ Đồng bộ từ server</h2>
+      <p class="note">Kéo toàn bộ vân tay từ database về thiết bị. Chọn cảm biến cần sync.</p>
+      <div class="stab-row" style="margin-top:10px">
+        <button class="stab active" id="syncTab0" onclick="setSyncSensor(0)">AS608 #1</button>
+        <button class="stab"        id="syncTab1" onclick="setSyncSensor(1)">AS608 #2</button>
+      </div>
+      <button class="btn enroll" id="syncBtn" style="width:100%" onclick="syncFromDB()">↓ SYNC TẤT CẢ</button>
+      <div class="prog-wrap"><div class="prog-bar" id="syncProgress"></div></div>
+      <div class="status" id="syncStatus"></div>
+    </div>
+  </div>
+</div>
+
+<!-- =========================================
+     AS608 #1
+     ========================================= -->
+<div id="as608_1" class="tab">
+  <div class="grid2">
+    <div class="card">
+      <h2>➕ Enroll vân tay AS608 #1</h2>
+      <input type="text" id="as1_code" placeholder="Mã số (VD: SV001)">
+      <input type="text" id="as1_name" placeholder="Tên người dùng">
+      <button class="btn enroll" onclick="enrollAS1()">+ ENROLL</button>
+      <div class="status" id="as1_enroll_status"></div>
+    </div>
+    <div class="card">
+      <h2>☁️ Sync từ server</h2>
+      <input type="text" id="as1_sync_code" placeholder="Mã số cần sync (để trống = tất cả)">
+      <button class="btn yellow" onclick="syncOneAS1()">↓ Sync 1 user</button>
+      <button class="btn ghost"  onclick="syncAllAS1()">↓ Sync tất cả</button>
+      <div class="status" id="as1_sync_status"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>
+      👤 Danh sách user AS608 #1
+      <button class="btn ghost" style="padding:5px 10px;font-size:11px;margin-left:auto" onclick="loadAS1Users()">↻ Làm mới</button>
+    </h2>
+    <div id="as1_list"><div class="empty">Đang tải...</div></div>
+  </div>
+</div>
+
+<!-- =========================================
+     AS608 #2
+     ========================================= -->
+<div id="as608_2" class="tab">
+  <div class="grid2">
+    <div class="card">
+      <h2>➕ Enroll vân tay AS608 #2</h2>
+      <input type="text" id="as2_code" placeholder="Mã số (VD: SV001)">
+      <input type="text" id="as2_name" placeholder="Tên người dùng">
+      <button class="btn purple" onclick="enrollAS2()">+ ENROLL</button>
+      <div class="status" id="as2_enroll_status"></div>
+    </div>
+    <div class="card">
+      <h2>☁️ Sync từ server</h2>
+      <input type="text" id="as2_sync_code" placeholder="Mã số cần sync (để trống = tất cả)">
+      <button class="btn yellow" onclick="syncOneAS2()">↓ Sync 1 user</button>
+      <button class="btn ghost"  onclick="syncAllAS2()">↓ Sync tất cả</button>
+      <div class="status" id="as2_sync_status"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>
+      👤 Danh sách user AS608 #2
+      <button class="btn ghost" style="padding:5px 10px;font-size:11px;margin-left:auto" onclick="loadAS2Users()">↻ Làm mới</button>
+    </h2>
+    <div id="as2_list"><div class="empty">Đang tải...</div></div>
+  </div>
+</div>
+
+<!-- =========================================
+     RFID
+     ========================================= -->
+<div id="rfid" class="tab">
+  <div class="card">
+    <h2>📡 Thêm thẻ RFID</h2>
+    <input type="text" id="rfid_uid"  placeholder="UID (VD: D1F44453)">
+    <input type="text" id="rfid_name" placeholder="Tên người dùng">
+    <button class="btn scan" onclick="scanRFID()">📡 Quét thẻ</button>
+    <button class="btn open" onclick="addRFID()">+ ADD</button>
+    <div class="status" id="rfid_add_status"></div>
+  </div>
+  <div class="card">
+    <h2>
+      📋 Danh sách thẻ
+      <button class="btn ghost" style="padding:5px 10px;font-size:11px;margin-left:auto" onclick="loadRFIDList()">↻ Làm mới</button>
+    </h2>
+    <div id="rfid_list"><div class="empty">Đang tải...</div></div>
+  </div>
+</div>
+
+<!-- =========================================
+     LOG
+     ========================================= -->
+<div id="log" class="tab">
+  <div class="card">
+    <h2>📜 Lịch sử truy cập</h2>
+    <div class="filter-row">
+      <button class="ftab active" onclick="setLogFilter('as608-1',this)">AS608 #1</button>
+      <button class="ftab"        onclick="setLogFilter('as608-2',this)">AS608 #2</button>
+      <button class="ftab"        onclick="setLogFilter('rfid',this)">RFID</button>
+      <button class="ftab"        onclick="setLogFilter('remote',this)">Remote</button>
+    </div>
+    <button class="btn ghost" style="margin-bottom:10px;font-size:12px" onclick="loadLog()">↻ Làm mới</button>
+    <div id="log_list"><div class="empty">Đang tải...</div></div>
+    <div style="margin:10px 0;display:flex;gap:10px;align-items:center;">
+      <label for="log_date_filter" style="font-size:14px;color:#94a3b8;">Chọn ngày:</label>
+      <input type="date" id="log_date_filter" onchange="refreshCurrentLogs()"
+             style="background:#1e293b;color:white;border:1px solid #334155;padding:6px 10px;border-radius:6px;outline:none;">
+    </div>
+  </div>
+</div>
+
+<!-- =========================================
+     SERVER / DATABASE
+     ========================================= -->
+<div id="db" class="tab">
+  <div class="card">
+    <h2>
+      ☁️ Users trên server
+      <button class="btn ghost" style="padding:5px 10px;font-size:11px;margin-left:auto" onclick="loadDbUsers()">↻</button>
+    </h2>
+    <div id="db_user_list"><div class="empty">Đang tải...</div></div>
+  </div>
+  <div class="card">
+    <h2>
+      📡 RFID trên server
+      <button class="btn ghost" style="padding:5px 10px;font-size:11px;margin-left:auto" onclick="loadDbRfid()">↻</button>
+    </h2>
+    <div id="db_rfid_list"><div class="empty">Đang tải...</div></div>
+  </div>
+</div>
+
+<!-- =========================================
+     SETTINGS
+     ========================================= -->
+<div id="settings" class="tab">
+  <div class="card">
+    <h2>🔑 API Key</h2>
+    <p class="note">API Key bảo vệ các thao tác ghi (enroll, xóa, sync). Lưu key này và điền vào mỗi lần dùng giao diện trên trình duyệt mới.</p>
+    <input type="password" id="api_key_input" placeholder="Nhập API Key của thiết bị...">
+    <button class="btn enroll" onclick="saveApiKey()">💾 Lưu key</button>
+    <div class="status" id="key_status"></div>
+  </div>
+  <div class="card">
+    <h2>🌐 Địa chỉ server Node.js</h2>
+    <p class="note">Địa chỉ IP máy chủ chạy server.js (thay đổi khi IP thay đổi).</p>
+    <input type="text" id="server_ip_input" placeholder="VD: 192.168.1.2">
+    <button class="btn yellow" onclick="updateServerIP()">🔄 Cập nhật IP</button>
+    <div class="status" id="ip_status"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// =========================================
+// STATE
+// =========================================
+let currentLogFilter  = 'as608-1';
+let currentSyncSensor = 0;
+
+function getApiKey() {
+  return sessionStorage.getItem('api_key') || '';
+}
+
+function saveApiKey() {
+  const key = document.getElementById('api_key_input').value.trim();
+  if (!key) { toast('Nhập key trước', '#ef4444'); return; }
+  sessionStorage.setItem('api_key', key);
+  document.getElementById('key_status').innerText = 'Đã lưu API Key vào session trình duyệt';
+  toast('API Key đã lưu', '#22c55e');
+}
+
+function authHeaders(extra) {
+  return Object.assign({ 'X-API-Key': getApiKey() }, extra || {});
+}
+
+// =========================================
+// UI HELPERS
+// =========================================
+function showTab(id, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (id === 'home')    loadStats();
+  if (id === 'as608_1') loadAS1Users();
+  if (id === 'as608_2') loadAS2Users();
+  if (id === 'rfid')    loadRFIDList();
+  if (id === 'log')     loadLog();
+  if (id === 'db')      { loadDbUsers(); loadDbRfid(); }
+}
+
+function toast(msg, color) {
+  const t = document.getElementById('toast');
+  t.innerText = msg;
+  t.style.background = color || '#22c55e';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// =========================================
+// HOME
+// =========================================
+function loadStats() {
+  fetch('/sync-status').then(r => r.json()).then(d => {
+    document.getElementById('stat-as1').innerText = d.as608_1 ?? '—';
+    document.getElementById('stat-as2').innerText = d.as608_2 ?? '—';
+  }).catch(() => {});
+
+  fetch('/rfid-list').then(r => r.json()).then(d => {
+    document.getElementById('stat-rfid').innerText = d.length;
+  }).catch(() => {});
+}
+
+function unlock() {
+  const token = document.getElementById('unlock_token').value.trim();
+  if (!token) { toast('Nhập token trước', '#ef4444'); return; }
+  const icon = document.getElementById('lockIcon');
+  icon.innerText = '⏳';
+  fetch('/unlock', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'token=' + encodeURIComponent(token)
+  }).then(r => r.json()).then(d => {
+    if (d.status === 'unlocked') {
+      icon.innerText = '🔓'; icon.style.borderColor = '#22c55e';
+      toast('Đã mở khóa!', '#22c55e');
+      setTimeout(() => { icon.innerText = '🔒'; icon.style.borderColor = '#3b82f6'; }, 3000);
+    } else {
+      icon.innerText = '🔒'; toast('Token sai!', '#ef4444');
+    }
+  }).catch(() => { icon.innerText = '🔒'; toast('Lỗi kết nối', '#ef4444'); });
+}
+
+function setSyncSensor(idx) {
+  currentSyncSensor = idx;
+  document.getElementById('syncTab0').classList.toggle('active', idx === 0);
+  document.getElementById('syncTab1').classList.toggle('active', idx === 1);
+}
+
+function syncFromDB() {
+  const btn  = document.getElementById('syncBtn');
+  const st   = document.getElementById('syncStatus');
+  const prog = document.getElementById('syncProgress');
+  const ep   = currentSyncSensor === 0 ? '/as608-1/sync-from-db' : '/as608-2/sync-from-db';
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> Đang sync...';
+  prog.style.width = '10%';
+
+  fetch(ep, { method: 'POST', headers: authHeaders() }).then(r => r.text()).then(msg => {
+    st.innerText = msg;
+    let p = 10, polls = 0;
+    const iv = setInterval(() => {
+      polls++; p = Math.min(90, p + 8); prog.style.width = p + '%';
+      fetch('/sync-status').then(r => r.json()).then(d => {
+        const c = currentSyncSensor === 0 ? d.as608_1 : d.as608_2;
+        st.innerText = 'Đang sync... (' + c + ' user trong flash)';
+        if (polls >= 12) {
+          clearInterval(iv); prog.style.width = '100%';
+          btn.disabled = false; btn.innerHTML = '↓ SYNC TẤT CẢ';
+          st.innerText = 'Hoàn tất — ' + c + ' user';
+          toast('Sync xong!', '#22c55e');
+          setTimeout(() => { prog.style.width = '0%'; }, 1000);
+        }
+      });
+    }, 2000);
+  }).catch(() => {
+    toast('Sync thất bại — kiểm tra API Key', '#ef4444');
+    btn.disabled = false; btn.innerHTML = '↓ SYNC TẤT CẢ'; prog.style.width = '0%';
+  });
+}
+
+// =========================================
+// AS608 #1
+// =========================================
+function enrollAS1() {
+  const code = document.getElementById('as1_code').value.trim();
+  const name = document.getElementById('as1_name').value.trim();
+  const st   = document.getElementById('as1_enroll_status');
+  if (!code || !name) { toast('Thiếu mã số hoặc tên', '#ef4444'); return; }
+  if (!getApiKey())   { toast('Chưa nhập API Key (tab Cài đặt)', '#ef4444'); return; }
+  st.innerHTML = '<span class="spin"></span> Đang enroll — đặt ngón tay lên AS608 #1...';
+  fetch('/as608-1/enroll', {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }),
+    body: 'code=' + encodeURIComponent(code) + '&name=' + encodeURIComponent(name)
+  }).then(r => r.text()).then(d => {
+    st.innerText = d;
+    toast(d, d.includes('thất bại') ? '#ef4444' : '#22c55e');
+    if (!d.includes('thất bại')) {
+      document.getElementById('as1_code').value = '';
+      document.getElementById('as1_name').value = '';
+      loadAS1Users();
+    }
+  }).catch(() => { st.innerText = 'Lỗi kết nối'; toast('Lỗi', '#ef4444'); });
+}
+
+function syncOneAS1() {
+  const code = document.getElementById('as1_sync_code').value.trim();
+  const st   = document.getElementById('as1_sync_status');
+  if (!code)        { toast('Nhập mã số', '#ef4444'); return; }
+  if (!getApiKey()) { toast('Chưa nhập API Key', '#ef4444'); return; }
+  st.innerHTML = '<span class="spin"></span> Đang sync...';
+  fetch('/as608-1/sync-from-db', {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ code })
+  }).then(r => r.text()).then(d => { st.innerText = d; toast(d, '#3b82f6'); })
+    .catch(() => { st.innerText = 'Lỗi'; toast('Lỗi', '#ef4444'); });
+}
+
+function syncAllAS1() {
+  const st = document.getElementById('as1_sync_status');
+  if (!getApiKey()) { toast('Chưa nhập API Key', '#ef4444'); return; }
+  st.innerHTML = '<span class="spin"></span> Đang sync tất cả...';
+  fetch('/as608-1/sync-from-db', { method: 'POST', headers: authHeaders() })
+    .then(r => r.text()).then(d => { st.innerText = d; toast(d, '#3b82f6'); })
+    .catch(() => { st.innerText = 'Lỗi'; toast('Lỗi', '#ef4444'); });
+}
+
+function loadAS1Users() {
+  fetch('/as608-1/users').then(r => r.json()).then(data => {
+    if (!data.length) {
+      document.getElementById('as1_list').innerHTML = '<div class="empty">Chưa có user nào</div>';
+      return;
+    }
+    document.getElementById('as1_list').innerHTML = data.map(u => `
+      <div class="item">
+        <div class="info"><b>${u.name}</b><span>Mã: ${u.code} · Slot: ${u.slot}</span></div>
+        <div class="acts">
+          <input class="edit-in" id="as1_e_${u.slot}" value="${u.name}">
+          <button class="btn update" style="padding:5px 10px;font-size:12px" onclick="updateAS1(${u.slot})">Sửa</button>
+          <button class="btn delete" style="padding:5px 10px;font-size:12px" onclick="deleteAS1(${u.slot},'${u.code}')">Xóa</button>
+        </div>
+      </div>`).join('');
+  }).catch(() => {
+    document.getElementById('as1_list').innerHTML = '<div class="empty" style="color:#ef4444">Lỗi tải dữ liệu</div>';
+  });
+}
+
+function updateAS1(slot) {
+  const name = document.getElementById('as1_e_' + slot).value;
+  fetch('/as608-1/update', {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }),
+    body: 'slot=' + slot + '&name=' + encodeURIComponent(name)
+  }).then(r => r.text()).then(d => { toast(d, '#22c55e'); loadAS1Users(); });
+}
+
+function deleteAS1(slot, code) {
+  if (!confirm('Xóa slot ' + slot + '?')) return;
+  fetch('/as608-1/delete', {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }),
+    body: 'slot=' + slot + '&code=' + encodeURIComponent(code)
+  }).then(r => r.text()).then(d => { toast(d, '#22c55e'); loadAS1Users(); });
+}
+
+// =========================================
+// AS608 #2
+// =========================================
+function enrollAS2() {
+  const code = document.getElementById('as2_code').value.trim();
+  const name = document.getElementById('as2_name').value.trim();
+  const st   = document.getElementById('as2_enroll_status');
+  if (!code || !name) { toast('Thiếu mã số hoặc tên', '#ef4444'); return; }
+  if (!getApiKey())   { toast('Chưa nhập API Key (tab Cài đặt)', '#ef4444'); return; }
+  st.innerHTML = '<span class="spin"></span> Đang enroll — đặt ngón tay lên AS608 #2...';
+  fetch('/as608-2/enroll', {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }),
+    body: 'code=' + encodeURIComponent(code) + '&name=' + encodeURIComponent(name)
+  }).then(r => r.text()).then(d => {
+    st.innerText = d;
+    toast(d, d.includes('thất bại') ? '#ef4444' : '#22c55e');
+    if (!d.includes('thất bại')) {
+      document.getElementById('as2_code').value = '';
+      document.getElementById('as2_name').value = '';
+      loadAS2Users();
+    }
+  }).catch(() => { st.innerText = 'Lỗi kết nối'; toast('Lỗi', '#ef4444'); });
+}
+
+function syncOneAS2() {
+  const code = document.getElementById('as2_sync_code').value.trim();
+  const st   = document.getElementById('as2_sync_status');
+  if (!code)        { toast('Nhập mã số', '#ef4444'); return; }
+  if (!getApiKey()) { toast('Chưa nhập API Key', '#ef4444'); return; }
+  st.innerHTML = '<span class="spin"></span> Đang sync...';
+  fetch('/as608-2/sync-from-db', {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ code })
+  }).then(r => r.text()).then(d => { st.innerText = d; toast(d, '#8b5cf6'); })
+    .catch(() => { st.innerText = 'Lỗi'; toast('Lỗi', '#ef4444'); });
+}
+
+function syncAllAS2() {
+  const st = document.getElementById('as2_sync_status');
+  if (!getApiKey()) { toast('Chưa nhập API Key', '#ef4444'); return; }
+  st.innerHTML = '<span class="spin"></span> Đang sync tất cả...';
+  fetch('/as608-2/sync-from-db', { method: 'POST', headers: authHeaders() })
+    .then(r => r.text()).then(d => { st.innerText = d; toast(d, '#8b5cf6'); })
+    .catch(() => { st.innerText = 'Lỗi'; toast('Lỗi', '#ef4444'); });
+}
+
+function loadAS2Users() {
+  fetch('/as608-2/users').then(r => r.json()).then(data => {
+    if (!data.length) {
+      document.getElementById('as2_list').innerHTML = '<div class="empty">Chưa có user nào</div>';
+      return;
+    }
+    document.getElementById('as2_list').innerHTML = data.map(u => `
+      <div class="item">
+        <div class="info"><b>${u.name}</b><span>Mã: ${u.code} · Slot: ${u.slot}</span></div>
+        <div class="acts">
+          <input class="edit-in" id="as2_e_${u.slot}" value="${u.name}">
+          <button class="btn update" style="padding:5px 10px;font-size:12px" onclick="updateAS2(${u.slot})">Sửa</button>
+          <button class="btn delete" style="padding:5px 10px;font-size:12px" onclick="deleteAS2(${u.slot},'${u.code}')">Xóa</button>
+        </div>
+      </div>`).join('');
+  }).catch(() => {
+    document.getElementById('as2_list').innerHTML = '<div class="empty" style="color:#ef4444">Lỗi tải dữ liệu</div>';
+  });
+}
+
+function updateAS2(slot) {
+  const name = document.getElementById('as2_e_' + slot).value;
+  fetch('/as608-2/update', {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }),
+    body: 'slot=' + slot + '&name=' + encodeURIComponent(name)
+  }).then(r => r.text()).then(d => { toast(d, '#22c55e'); loadAS2Users(); });
+}
+
+function deleteAS2(slot, code) {
+  if (!confirm('Xóa slot ' + slot + '?')) return;
+  fetch('/as608-2/delete', {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }),
+    body: 'slot=' + slot + '&code=' + encodeURIComponent(code)
+  }).then(r => r.text()).then(d => { toast(d, '#22c55e'); loadAS2Users(); });
+}
+
+// =========================================
+// RFID
+// =========================================
+function scanRFID() {
+  const st = document.getElementById('rfid_add_status');
+  st.innerHTML = '<span class="spin"></span> Đang quét — đưa thẻ lại gần...';
+  fetch('/scan-rfid').then(r => r.text()).then(uid => {
+    if (uid.includes('Timeout')) {
+      st.innerText = 'Timeout — không tìm thấy thẻ'; toast('Không thấy thẻ', '#ef4444');
+    } else {
+      document.getElementById('rfid_uid').value = uid;
+      st.innerText = 'Đã quét: ' + uid; toast('Đã quét: ' + uid, '#22c55e');
+    }
+  }).catch(() => { st.innerText = 'Lỗi'; toast('Lỗi', '#ef4444'); });
+}
+
+function addRFID() {
+  const uid  = document.getElementById('rfid_uid').value.trim();
+  const name = document.getElementById('rfid_name').value.trim();
+  const st   = document.getElementById('rfid_add_status');
+  if (!uid || !name) { toast('Thiếu UID hoặc tên', '#ef4444'); return; }
+  if (!getApiKey())  { toast('Chưa nhập API Key', '#ef4444'); return; }
+  fetch('/add-rfid', {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }),
+    body: 'uid=' + encodeURIComponent(uid) + '&name=' + encodeURIComponent(name)
+  }).then(r => r.text()).then(d => {
+    st.innerText = d; toast(d, '#22c55e');
+    document.getElementById('rfid_uid').value  = '';
+    document.getElementById('rfid_name').value = '';
+    loadRFIDList();
+  });
+}
+
+function loadRFIDList() {
+  fetch('/rfid-list').then(r => r.json()).then(data => {
+    if (!data.length) {
+      document.getElementById('rfid_list').innerHTML = '<div class="empty">Chưa có thẻ nào</div>';
+      return;
+    }
+    document.getElementById('rfid_list').innerHTML = data.map(r => `
+      <div class="item">
+        <div class="info"><b>${r.name}</b><span>UID: ${r.uid}</span></div>
+        <div class="acts">
+          <input class="edit-in" id="rfid_e_${r.id}" value="${r.name}">
+          <button class="btn update" style="padding:5px 10px;font-size:12px" onclick="updateRFID(${r.id})">Sửa</button>
+          <button class="btn delete" style="padding:5px 10px;font-size:12px" onclick="deleteRFID(${r.id})">Xóa</button>
+        </div>
+      </div>`).join('');
+  }).catch(() => {
+    document.getElementById('rfid_list').innerHTML = '<div class="empty" style="color:#ef4444">Lỗi tải dữ liệu</div>';
+  });
+}
+
+function updateRFID(id) {
+  const name = document.getElementById('rfid_e_' + id).value;
+  fetch('/rfid-update', {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }),
+    body: 'id=' + id + '&name=' + encodeURIComponent(name)
+  }).then(r => r.text()).then(d => { toast(d, '#22c55e'); loadRFIDList(); });
+}
+
+function deleteRFID(id) {
+  if (!confirm('Xóa thẻ này?')) return;
+  fetch('/rfid-delete', {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }),
+    body: 'id=' + id
+  }).then(r => r.text()).then(d => { toast(d, '#22c55e'); loadRFIDList(); });
+}
+
+// =========================================
+// LOG
+// =========================================
+const logMethodBadge = {
+  'as608-1': '<span class="badge b-blue">AS608 #1</span>',
+  'as608-2': '<span class="badge b-purple">AS608 #2</span>',
+  'rfid':    '<span class="badge b-cyan">RFID</span>',
+  'remote':  '<span class="badge b-orange">Remote</span>',
+};
+
+function setLogFilter(f, btn) {
+  currentLogFilter = f;
+  document.querySelectorAll('.ftab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  loadLog();
+}
+
+function refreshCurrentLogs() {
+  loadLog();
+}
+
+function loadLog() {
+  const datePicker   = document.getElementById('log_date_filter');
+  const selectedDate = datePicker ? datePicker.value : '';
+  let url = '/log-proxy?sensor=' + currentLogFilter;
+  if (selectedDate) url += '&date=' + selectedDate;
+
+  fetch(url)
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(data => {
+      const el = document.getElementById('log_list');
+      if (!data.length) {
+        el.innerHTML = '<div class="empty">Không có nhật ký truy cập trong ngày này</div>';
+        return;
+      }
+      el.innerHTML = data.map(l => {
+        const methodKey = l.method || currentLogFilter;
+        const badge = logMethodBadge[methodKey] || '';
+        return `
+          <div class="log-item ${l.granted ? 'ok' : 'err'}">
+            <div style="font-size:18px">${l.granted ? '✅' : '❌'}</div>
+            <div class="log-info">
+              <b>${l.name || 'Unknown'} ${badge}</b>
+              <span>${l.slot ? 'Slot: ' + l.slot : ''} ${l.uid ? ' · UID: ' + l.uid : ''}</span>
+            </div>
+            <div class="log-time">${l.time || ''}</div>
+          </div>`;
+      }).join('');
+    }).catch(() => {
+      document.getElementById('log_list').innerHTML =
+        '<div class="empty" style="color:#ef4444">Lỗi tải log — kiểm tra kết nối server</div>';
+    });
+}
+
+// =========================================
+// DATABASE
+// =========================================
+function loadDbUsers() {
+  fetch('/db-users').then(r => r.json()).then(data => {
+    if (!data.length) {
+      document.getElementById('db_user_list').innerHTML = '<div class="empty">Chưa có user nào trên server</div>';
+      return;
+    }
+    document.getElementById('db_user_list').innerHTML = data.map(u => {
+      const hasAS  = u.fingerprint_as608 && u.fingerprint_as608.length > 0;
+      const sensors = u.sensors || '—';
+      return `
+        <div class="item">
+          <div class="info">
+            <b>${u.name}</b>
+            <span>Mã: ${u.code || '—'} · Slot: ${u.slot || '—'} · <span class="badge b-blue">${sensors}</span></span>
+            <div class="fp-row">
+              <span class="fp-chip ${hasAS ? 'fp-ok' : 'fp-no'}">AS608 ${hasAS ? '✓' : '✗'}</span>
+            </div>
+          </div>
+          <div class="acts">
+            <input class="edit-in" id="db_e_${u.code}" value="${u.name}">
+            <button class="btn update" style="padding:5px 10px;font-size:12px" onclick="dbUpdateUser('${u.code}')">Sửa</button>
+          </div>
+        </div>`;
+    }).join('');
+  }).catch(() => {
+    document.getElementById('db_user_list').innerHTML =
+      '<div class="empty" style="color:#ef4444">Không kết nối được server</div>';
+  });
+}
+
+function loadDbRfid() {
+  fetch('/db-rfid').then(r => r.json()).then(data => {
+    if (!data.length) {
+      document.getElementById('db_rfid_list').innerHTML = '<div class="empty">Chưa có thẻ RFID nào trên server</div>';
+      return;
+    }
+    document.getElementById('db_rfid_list').innerHTML = data.map(r => `
+      <div class="item">
+        <div class="info"><b>${r.name}</b><span>UID: ${r.uid}</span></div>
+        <div class="acts">
+          <input class="edit-in" id="db_rfid_${r.uid}" value="${r.name}">
+          <button class="btn update" style="padding:5px 10px;font-size:12px" onclick="dbUpdateRfid('${r.uid}')">Sửa</button>
+        </div>
+      </div>`).join('');
+  }).catch(() => {
+    document.getElementById('db_rfid_list').innerHTML =
+      '<div class="empty" style="color:#ef4444">Không kết nối được server</div>';
+  });
+}
+
+function dbUpdateUser(code) {
+  const name = document.getElementById('db_e_' + code).value;
+  if (!getApiKey()) { toast('Chưa nhập API Key', '#ef4444'); return; }
+  fetch('/db-users', {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ code, name })
+  }).then(r => r.json()).then(() => { toast('Đã cập nhật server', '#22c55e'); loadDbUsers(); })
+    .catch(() => toast('Lỗi cập nhật', '#ef4444'));
+}
+
+function dbUpdateRfid(uid) {
+  const name = document.getElementById('db_rfid_' + uid).value;
+  if (!getApiKey()) { toast('Chưa nhập API Key', '#ef4444'); return; }
+  fetch('/db-rfid', {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ uid, name })
+  }).then(r => r.json()).then(() => { toast('Đã cập nhật RFID', '#22c55e'); loadDbRfid(); })
+    .catch(() => toast('Lỗi cập nhật', '#ef4444'));
+}
+
+// =========================================
+// SETTINGS
+// =========================================
+function updateServerIP() {
+  const ip = document.getElementById('server_ip_input').value.trim();
+  if (!ip)          { toast('Nhập IP trước', '#ef4444'); return; }
+  if (!getApiKey()) { toast('Chưa nhập API Key', '#ef4444'); return; }
+  fetch('/set-server-ip', {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'text/plain' }),
+    body: ip
+  }).then(r => r.text()).then(d => {
+    document.getElementById('ip_status').innerText = d;
+    toast(d, '#22c55e');
+  }).catch(() => toast('Lỗi', '#ef4444'));
+}
+
+// =========================================
+// KHỞI TẠO
+// =========================================
+loadStats();
+</script>
+</body>
+</html> 
+)rawliteral";
+
+#endif

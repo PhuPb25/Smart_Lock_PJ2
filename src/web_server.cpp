@@ -1,7 +1,7 @@
 #include "web_server.h"
 #include "globals.h"
 #include "config.h"
-#include "index.h"
+#include "UI/index.h"
 #include "rfid.h"
 #include "fingerprint.h"
 #include "lock_control.h"
@@ -260,16 +260,13 @@ void setupWebServer() {
         REQUIRE_API_KEY();
         if (WiFi.status() != WL_CONNECTED) { server.send(503, "text/plain", "Không có WiFi"); return; }
 
-        String body = server.arg("plain");
-        String targetCode = "";
-        if (body.length() > 0) {
-            JsonDocument doc;
-            if (!deserializeJson(doc, body) && doc["code"].is<String>()) {
-                targetCode = doc["code"].as<String>();
+        String body = server.arg("plain"); // Lấy nội dung body thô từ yêu cầu HTTP POST
+        String targetCode = ""; // Khởi tạo biến mã cần đồng bộ
+        if (body.length() > 0) { // Nếu body không rỗng thì xử lý JSON
+            JsonDocument doc; // Khai báo đối tượng JsonDocument để chứa dữ liệu giải mã
+            if (!deserializeJson(doc, body) && doc["code"].is<String>()) { // Giải mã JSON và kiểm tra trường code
+                targetCode = doc["code"].as<String>(); // Lấy giá trị code nếu có
             }
-        }
-
-        if (targetCode.length() > 0) {
             server.send(200, "text/plain", "[AS608-1] Đang sync code=" + targetCode);
             syncUserFromServer(targetCode, 0);
         } else {
@@ -544,12 +541,32 @@ void setupWebServer() {
     });
 
     // =========================================
-    // LOG PROXY — Chuyển tiếp toàn bộ yêu cầu về DB Server
+    // LOG PROXY — Hỗ trợ chuyển tiếp tham số Ngày
     // =========================================
     server.on("/log-proxy", HTTP_GET, []() {
         String sensor = server.arg("sensor");
-        if (sensor.length() == 0) sensor = "all";
-        forwardLogFromServer(sensor);
+        String date = server.arg("date"); // Lấy thêm tham số date từ Web Client
+        
+        if (WiFi.status() == WL_CONNECTED) {
+            HTTPClient http;
+            
+            // Xây dựng URL động chứa cả cặp tham số lọc sensor và date
+            String url = getServerBase() + "/api/log?sensor=" + sensor;
+            if (date.length() > 0) {
+                url += "&date=" + date;
+            }
+            
+            http.begin(url);
+            int code = http.GET();
+            if (code == 200) {
+                server.send(200, "application/json", http.getString());
+            } else {
+                server.send(500, "application/json", "{\"error\":\"Lỗi Proxy Log\"}");
+            }
+            http.end();
+        } else {
+            server.send(503, "application/json", "{\"error\":\"Mất kết nối WiFi\"}");
+        }
     });
 
     server.begin();

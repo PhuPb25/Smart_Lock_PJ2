@@ -3,32 +3,37 @@
 #include "config.h"
 #include "lock_control.h"
 #include "log.h"
+#include "oled.h"          // ← OLED
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 
 // =========================================
 // BASE64
 // =========================================
+// Mã hóa Base64 và giải mã Base64
 static const char b64chars[] =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"; // Chuỗi ký tự Base64
 
 static String base64Encode(const uint8_t* data, size_t len) {
-    String result = "";
-    result.reserve((len / 3 + 1) * 4 + 4);
-    for (size_t i = 0; i < len; i += 3) {
-        uint8_t b0 = data[i];
-        uint8_t b1 = (i + 1 < len) ? data[i + 1] : 0;
-        uint8_t b2 = (i + 2 < len) ? data[i + 2] : 0;
-        result += b64chars[b0 >> 2];
-        result += b64chars[((b0 & 0x03) << 4) | (b1 >> 4)];
+    String result = ""; // Chuỗi kết quả Base64
+    result.reserve((len / 3 + 1) * 4 + 4); // Dự trữ bộ nhớ: 4 ký tự cho mỗi 3 byte + đệm
+    for (size_t i = 0; i < len; i += 3) { // Duyệt dữ liệu theo khối 3 byte
+        uint8_t b0 = data[i]; // Lấy byte 0 của khối
+        uint8_t b1 = (i + 1 < len) ? data[i + 1] : 0; // Lấy byte 1 nếu có, ngược lại 0
+        uint8_t b2 = (i + 2 < len) ? data[i + 2] : 0; // Lấy byte 2 nếu có, ngược lại 0
+        result += b64chars[b0 >> 2]; // 6 bit cao của b0 -> ký tự Base64 1
+        result += b64chars[((b0 & 0x03) << 4) | (b1 >> 4)]; // 2 bit thấp của b0 + 4 bit cao của b1 -> ký tự 2
+        // Nếu có byte 1, tạo ký tự 3 từ 4 bit thấp của b1 và 2 bit cao của b2, nếu không gán '='
         result += (i + 1 < len) ? b64chars[((b1 & 0x0F) << 2) | (b2 >> 6)] : '=';
+        // Nếu có byte 2, ký tự 4 lấy 6 bit thấp của b2, nếu không gán '='
         result += (i + 2 < len) ? b64chars[b2 & 0x3F] : '=';
     }
-    return result;
+    return result; // Trả về chuỗi Base64
 }
 
-static int base64Decode(const String& input, uint8_t* output, size_t maxLen) {
-    static const int8_t b64index[256] = {
+static int base64Decode(const String& input, uint8_t* output, size_t maxLen) { 
+    // Hàm giải mã Base64: trả về số byte giải mã
+    static const int8_t b64index[256] = {// Bảng ánh xạ ký tự Base64 -> giá trị 6-bit hoặc -1 nếu không hợp lệ
         -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
         -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
         -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,62,-1,-1,-1,63,
@@ -46,22 +51,22 @@ static int base64Decode(const String& input, uint8_t* output, size_t maxLen) {
         -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
         -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
     };
-    size_t outLen = 0;
-    uint32_t buf  = 0;
-    int bits      = 0;
-    for (int i = 0; i < (int)input.length(); i++) {
-        char c = input[i];
-        if (c == '=') break;
-        int8_t val = b64index[(uint8_t)c];
-        if (val < 0) continue;
-        buf  = (buf << 6) | val;
-        bits += 6;
-        if (bits >= 8) {
-            bits -= 8;
-            if (outLen < maxLen) output[outLen++] = (uint8_t)(buf >> bits);
+    size_t outLen = 0; // Số byte đã ghi vào output
+    uint32_t buf  = 0;  // Bộ đệm bit tạm thời để gom các nhóm 6-bit
+    int bits      = 0;  // Số bit hiện có trong buf
+    for (int i = 0; i < (int)input.length(); i++) { // Duyệt từng ký tự trong input
+        char c = input[i]; // Lấy ký tự hiện tại
+        if (c == '=') break; // Dấu '=' là padding -> kết thúc chuỗi dữ liệu
+        int8_t val = b64index[(uint8_t)c]; // Lấy giá trị 6-bit từ bảng, hoặc -1 nếu ký tự không phải Base64
+        if (val < 0) continue; // Bỏ qua ký tự không hợp lệ (ví dụ ký tự xuống dòng)
+        buf  = (buf << 6) | val; // Dịch buf 6 bit và ghép thêm giá trị mới
+        bits += 6; // Tăng số bit có trong buf
+        if (bits >= 8) { // Nếu có ít nhất 8 bit, trích một byte
+            bits -= 8; // Giảm số bit còn lại sau khi trích
+            if (outLen < maxLen) output[outLen++] = (uint8_t)(buf >> bits); // Ghi byte cao vào output nếu còn chỗ
         }
     }
-    return (int)outLen;
+    return (int)outLen; // Trả về số byte đã giải mã
 }
 
 // =========================================
@@ -85,126 +90,125 @@ int findFreeSlotAS2() {
 // =========================================
 // HELPER — Gửi lệnh UpChar thủ công cho AS608
 // =========================================
-static uint8_t sendUploadCharCommand(HardwareSerial& serial) {
-    uint8_t cmd[] = {
-        0xEF, 0x01, 0xFF, 0xFF, 0xFF, 0xFF,
-        0x01, 0x00, 0x04, 0x09, 0x01,
-        0x00, 0x0F
+static uint8_t sendUploadCharCommand(HardwareSerial& serial) { // Gửi lệnh UpChar thủ công tới cảm biến qua serial
+    uint8_t cmd[] = { // Mảng byte lệnh theo giao thức của AS608
+        0xEF, 0x01, 0xFF, 0xFF, 0xFF, 0xFF, // Header và address
+        0x01, 0x00, 0x04, 0x09, 0x01,       // Packet type, length và mã lệnh UpChar
+        0x00, 0x0F                          // Checksum (2 byte)
     };
-    serial.write(cmd, sizeof(cmd));
-    uint32_t t = millis();
-    while (serial.available() < 12 && millis() - t < 1000);
-    uint8_t resp[12] = {0};
-    int n = 0;
-    t = millis();
-    while (n < 12 && millis() - t < 500) {
-        if (serial.available()) resp[n++] = serial.read();
+    serial.write(cmd, sizeof(cmd)); // Gửi mảng lệnh ra serial
+    uint32_t t = millis(); // Bắt đầu tính thời gian chờ
+    while (serial.available() < 12 && millis() - t < 1000); // Chờ ít nhất 12 byte phản hồi hoặc timeout 1s
+    uint8_t resp[12] = {0}; // Buffer chứa phản hồi tối đa 12 byte
+    int n = 0; // Số byte đã đọc
+    t = millis(); // Đặt lại bộ đếm thời gian
+    while (n < 12 && millis() - t < 500) { // Đọc tối đa 12 byte hoặc timeout 500ms
+        if (serial.available()) resp[n++] = serial.read(); // Nếu có dữ liệu, đọc vào buffer
     }
-    for (int i = 0; i < n - 1; i++) {
-        if (resp[i] == 0xEF && resp[i+1] == 0x01) {
-            return (resp[i + 9] == 0x00) ? FINGERPRINT_OK : resp[i + 9];
+    for (int i = 0; i < n - 1; i++) { // Duyệt buffer để tìm header hợp lệ
+        if (resp[i] == 0xEF && resp[i+1] == 0x01) { // Nếu tìm thấy header của gói
+            return (resp[i + 9] == 0x00) ? FINGERPRINT_OK : resp[i + 9]; // Trả về FINGERPRINT_OK nếu code 0x00, ngược lại trả mã lỗi
         }
     }
-    return FINGERPRINT_PACKETRECIEVEERR;
+    return FINGERPRINT_PACKETRECIEVEERR; // Nếu không nhận được gói hợp lệ, trả về lỗi nhận gói
 }
 
 // =========================================
 // DOWNLOAD TEMPLATE — AS608 (512 bytes)
 // =========================================
 uint8_t manualDownloadModelAS(Adafruit_Fingerprint& finger, HardwareSerial& serial, uint8_t* dest) {
-    uint8_t p = finger.getModel();
-    if (p != FINGERPRINT_OK) return p;
+    uint8_t p = finger.getModel(); // Lấy model hiện tại từ cảm biến vân tay
+    if (p != FINGERPRINT_OK) return p; // Nếu không thành công, trả về mã lỗi
 
-    uint16_t bytesRead = 0;
-    uint32_t startTimer = millis();
-    while (bytesRead < 512) {
-        if (millis() - startTimer > 3000) return FINGERPRINT_TIMEOUT;
-        if (!serial.available()) continue;
-        if (serial.read() != 0xEF) continue;
-        uint32_t t = millis();
-        while (!serial.available() && millis() - t < 200);
-        if (serial.read() != 0x01) continue;
-        for (int i = 0; i < 4; i++) {
+    uint16_t bytesRead = 0; // Số byte đã đọc vào buffer dest
+    uint32_t startTimer = millis(); // Bắt đầu bộ đếm thời gian chờ tổng
+    while (bytesRead < 512) { // Tiếp tục cho đến khi đọc đủ 512 byte
+        if (millis() - startTimer > 3000) return FINGERPRINT_TIMEOUT; // Nếu quá 3 giây, trả về timeout
+        if (!serial.available()) continue; // Nếu không có dữ liệu, quay vòng tiếp
+        if (serial.read() != 0xEF) continue; // Kiểm tra byte header, nếu sai thì bỏ qua
+        uint32_t t = millis(); // Bắt đầu bộ đếm thời gian chờ cho mỗi byte tiếp theo
+        while (!serial.available() && millis() - t < 200); // Chờ byte tiếp theo tối đa 200ms
+        if (serial.read() != 0x01) continue; // Kiểm tra byte địa chỉ, nếu sai thì bỏ qua gói này
+        for (int i = 0; i < 4; i++) { // Bỏ qua 4 byte địa chỉ tiếp theo
             t = millis();
             while (!serial.available() && millis() - t < 200);
             serial.read();
         }
         t = millis();
-        while (!serial.available() && millis() - t < 200);
-        uint8_t pid = serial.read();
+        while (!serial.available() && millis() - t < 200); // Chờ packet id
+        uint8_t pid = serial.read(); // Đọc packet id
         t = millis();
-        while (serial.available() < 2 && millis() - t < 200);
-        uint16_t len = ((uint16_t)serial.read() << 8) | serial.read();
-        uint16_t dataLen = len - 2;
-        for (uint16_t i = 0; i < dataLen && bytesRead < 512; i++) {
+        while (serial.available() < 2 && millis() - t < 200); // Chờ 2 byte độ dài
+        uint16_t len = ((uint16_t)serial.read() << 8) | serial.read(); // Đọc độ dài gói
+        uint16_t dataLen = len - 2; // Dữ liệu thực tế = độ dài - 2 byte checksum
+        for (uint16_t i = 0; i < dataLen && bytesRead < 512; i++) { // Đọc payload dữ liệu
             t = millis();
             while (!serial.available() && millis() - t < 200);
-            dest[bytesRead++] = serial.read();
+            dest[bytesRead++] = serial.read(); // Lưu byte vào buffer đích
         }
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < 2; i++) { // Bỏ qua 2 byte checksum
             t = millis();
             while (!serial.available() && millis() - t < 200);
             serial.read();
         }
-        if (pid == 0x08) break;
+        if (pid == 0x08) break; // Nếu đây là packet dữ liệu cuối, kết thúc vòng lặp
     }
-    return FINGERPRINT_OK;
+    return FINGERPRINT_OK; // Trả về OK nếu đã đọc xong
 }
 
 // =========================================
 // UPLOAD TEMPLATE VÀO AS608 (512 bytes)
 // =========================================
-uint8_t uploadFingerprintTemplate(Adafruit_Fingerprint& finger, HardwareSerial& serial,
-                                   uint16_t slot, String base64Data) {
-    uint8_t templateBuffer[512] = {0};
-    int len = base64Decode(base64Data, templateBuffer, 512);
-    if (len < 256) {
+uint8_t uploadFingerprintTemplate(Adafruit_Fingerprint& finger, HardwareSerial& serial, uint16_t slot, String base64Data) {
+    uint8_t templateBuffer[512] = {0}; // Tạo buffer 512 byte để lưu template đã giải mã
+    int len = base64Decode(base64Data, templateBuffer, 512); // Giải mã base64 và lưu vào buffer
+    if (len < 256) { // Nếu dữ liệu sau giải mã nhỏ hơn 256 byte thì không hợp lệ
         Serial.println("[AS608] Template quá ngắn sau decode");
-        return 0xFF;
+        return 0xFF; // Trả về lỗi
     }
 
-    if (sendUploadCharCommand(serial) != FINGERPRINT_OK) {
+    if (sendUploadCharCommand(serial) != FINGERPRINT_OK) { // Gửi lệnh bắt đầu upload template
         Serial.println("[AS608] UploadChar command thất bại");
-        return 0xFF;
+        return 0xFF; // Nếu lệnh thất bại thì dừng
     }
 
-    const uint16_t PKT_DATA = 64;
-    int totalPkts = (len + PKT_DATA - 1) / PKT_DATA;
+    const uint16_t PKT_DATA = 64; // Kích thước dữ liệu mỗi packet là 64 byte
+    int totalPkts = (len + PKT_DATA - 1) / PKT_DATA; // Tính số packet cần gửi
 
     for (int i = 0; i < totalPkts; i++) {
-        uint8_t pid   = (i == totalPkts - 1) ? 0x08 : 0x02;
+        uint8_t pid   = (i == totalPkts - 1) ? 0x08 : 0x02; // Packet cuối dùng id 0x08, các packet khác 0x02
         uint16_t dLen = (i == totalPkts - 1 && len % PKT_DATA != 0)
-                        ? (len % PKT_DATA) : PKT_DATA;
+                        ? (len % PKT_DATA) : PKT_DATA; // Độ dài dữ liệu packet cuối có thể nhỏ hơn 64
 
-        uint8_t pkt[80];
-        int idx = 0;
-        pkt[idx++] = 0xEF; pkt[idx++] = 0x01;
-        pkt[idx++] = 0xFF; pkt[idx++] = 0xFF; pkt[idx++] = 0xFF; pkt[idx++] = 0xFF;
-        pkt[idx++] = pid;
-        uint16_t plen = dLen + 2;
-        pkt[idx++] = plen >> 8;
-        pkt[idx++] = plen & 0xFF;
+        uint8_t pkt[80]; // Mảng chứa packet gửi đi
+        int idx = 0; // Chỉ số viết vào packet
+        pkt[idx++] = 0xEF; pkt[idx++] = 0x01; // Header cố định
+        pkt[idx++] = 0xFF; pkt[idx++] = 0xFF; pkt[idx++] = 0xFF; pkt[idx++] = 0xFF; // Address mặc định
+        pkt[idx++] = pid; // Packet ID
+        uint16_t plen = dLen + 2; // Tổng độ dài payload + 2 byte checksum
+        pkt[idx++] = plen >> 8; // Byte cao độ dài packet
+        pkt[idx++] = plen & 0xFF; // Byte thấp độ dài packet
 
-        uint16_t sum = pid + (plen >> 8) + (plen & 0xFF);
+        uint16_t sum = pid + (plen >> 8) + (plen & 0xFF); // Tính checksum ban đầu
         for (uint16_t j = 0; j < dLen; j++) {
-            uint8_t b = templateBuffer[i * PKT_DATA + j];
-            pkt[idx++] = b;
-            sum += b;
+            uint8_t b = templateBuffer[i * PKT_DATA + j]; // Lấy byte dữ liệu từ template
+            pkt[idx++] = b; // Ghi dữ liệu vào packet
+            sum += b; // Cộng checksum
         }
-        pkt[idx++] = sum >> 8;
-        pkt[idx++] = sum & 0xFF;
+        pkt[idx++] = sum >> 8; // Checksum byte cao
+        pkt[idx++] = sum & 0xFF; // Checksum byte thấp
 
-        serial.write(pkt, idx);
-        delay(5);
+        serial.write(pkt, idx); // Gửi packet qua serial
+        delay(5); // Đợi một chút để thiết bị nhận dữ liệu
     }
 
-    uint8_t p = finger.storeModel(slot);
+    uint8_t p = finger.storeModel(slot); // Gọi hàm lưu model vào slot của cảm biến
     if (p != FINGERPRINT_OK) {
-        Serial.printf("[AS608] StoreModel thất bại: 0x%02X\n", p);
+        Serial.printf("[AS608] StoreModel thất bại: 0x%02X\n", p); // In lỗi nếu thất bại
         return 0xFF;
     }
-    Serial.printf("[AS608] Upload template OK → slot #%d\n", slot);
-    return FINGERPRINT_OK;
+    Serial.printf("[AS608] Upload template OK → slot #%d\n", slot); // Thông báo upload thành công
+    return FINGERPRINT_OK; // Trả về thành công
 }
 
 // =========================================
@@ -258,19 +262,28 @@ void syncAfterEnroll(uint8_t slot, String name, String code, uint8_t sensorIdx) 
 // =========================================
 uint8_t enrollAS1(uint8_t slot, String name, String code) {
     Serial.println("[AS1] Đặt ngón tay lên cảm biến 1...");
+    oledShow(OLED_ENROLLING, name);        // ← OLED: Bước 1
     pixels.setPixelColor(0, pixels.Color(255, 165, 0));
     pixels.show();
 
     uint32_t t = millis();
     while (fingerAS1.getImage() != FINGERPRINT_OK) {
         server.handleClient();
-        if (millis() - t > 15000) { pixels.clear(); pixels.show(); return FINGERPRINT_TIMEOUT; }
+        oledLoop();                        // ← Giữ OLED responsive khi chờ
+        if (millis() - t > 15000) {
+            pixels.clear(); pixels.show();
+            oledShow(OLED_ENROLL_FAIL, "Timeout - AS1");
+            return FINGERPRINT_TIMEOUT;
+        }
     }
     if (fingerAS1.image2Tz(1) != FINGERPRINT_OK) {
-        pixels.clear(); pixels.show(); return FINGERPRINT_IMAGEMESS;
+        pixels.clear(); pixels.show();
+        oledShow(OLED_ENROLL_FAIL, "Anh mo - AS1");
+        return FINGERPRINT_IMAGEMESS;
     }
 
     Serial.println("[AS1] Nhấc tay ra...");
+    oledShow(OLED_ENROLL_STEP2, name);     // ← OLED: Yêu cầu quét lần 2
     delay(1000);
     t = millis();
     while (fingerAS1.getImage() != FINGERPRINT_NOFINGER) {
@@ -283,13 +296,31 @@ uint8_t enrollAS1(uint8_t slot, String name, String code) {
     t = millis();
     while (fingerAS1.getImage() != FINGERPRINT_OK) {
         server.handleClient();
-        if (millis() - t > 15000) { pixels.clear(); pixels.show(); return FINGERPRINT_TIMEOUT; }
+        oledLoop();
+        if (millis() - t > 15000) {
+            pixels.clear(); pixels.show();
+            oledShow(OLED_ENROLL_FAIL, "Timeout lan 2");
+            return FINGERPRINT_TIMEOUT;
+        }
     }
-    if (fingerAS1.image2Tz(2)      != FINGERPRINT_OK) { pixels.clear(); pixels.show(); return FINGERPRINT_IMAGEMESS; }
-    if (fingerAS1.createModel()    != FINGERPRINT_OK) { pixels.clear(); pixels.show(); return FINGERPRINT_ENROLLMISMATCH; }
-    if (fingerAS1.storeModel(slot) != FINGERPRINT_OK) { pixels.clear(); pixels.show(); return FINGERPRINT_BADLOCATION; }
+    if (fingerAS1.image2Tz(2) != FINGERPRINT_OK) {
+        pixels.clear(); pixels.show();
+        oledShow(OLED_ENROLL_FAIL, "Anh mo lan 2");
+        return FINGERPRINT_IMAGEMESS;
+    }
+    if (fingerAS1.createModel() != FINGERPRINT_OK) {
+        pixels.clear(); pixels.show();
+        oledShow(OLED_ENROLL_FAIL, "2 lan khong khop");
+        return FINGERPRINT_ENROLLMISMATCH;
+    }
+    if (fingerAS1.storeModel(slot) != FINGERPRINT_OK) {
+        pixels.clear(); pixels.show();
+        oledShow(OLED_ENROLL_FAIL, "Loi ghi flash");
+        return FINGERPRINT_BADLOCATION;
+    }
 
-    Serial.printf("[AS1]  Enroll slot #%d OK\n", slot);
+    Serial.printf("[AS1] Enroll slot #%d OK\n", slot);
+    oledShow(OLED_ENROLL_OK, name + " #" + String(slot));  // ← OLED: Thành công
     syncAfterEnroll(slot, name, code, 0);  // sensorIdx=0 → chỉ ghi as1_
     pixels.clear(); pixels.show();
     return slot;
@@ -300,19 +331,28 @@ uint8_t enrollAS1(uint8_t slot, String name, String code) {
 // =========================================
 uint8_t enrollAS2(uint8_t slot, String name, String code) {
     Serial.println("[AS2] Đặt ngón tay lên cảm biến 2...");
+    oledShow(OLED_ENROLLING, name);        // ← OLED: Bước 1
     pixels.setPixelColor(0, pixels.Color(0, 165, 255));
     pixels.show();
 
     uint32_t t = millis();
     while (fingerAS2.getImage() != FINGERPRINT_OK) {
         server.handleClient();
-        if (millis() - t > 15000) { pixels.clear(); pixels.show(); return FINGERPRINT_TIMEOUT; }
+        oledLoop();
+        if (millis() - t > 15000) {
+            pixels.clear(); pixels.show();
+            oledShow(OLED_ENROLL_FAIL, "Timeout - AS2");
+            return FINGERPRINT_TIMEOUT;
+        }
     }
     if (fingerAS2.image2Tz(1) != FINGERPRINT_OK) {
-        pixels.clear(); pixels.show(); return FINGERPRINT_IMAGEMESS;
+        pixels.clear(); pixels.show();
+        oledShow(OLED_ENROLL_FAIL, "Anh mo - AS2");
+        return FINGERPRINT_IMAGEMESS;
     }
 
     Serial.println("[AS2] Nhấc tay ra...");
+    oledShow(OLED_ENROLL_STEP2, name);     // ← OLED: Yêu cầu quét lần 2
     delay(1000);
     t = millis();
     while (fingerAS2.getImage() != FINGERPRINT_NOFINGER) {
@@ -325,13 +365,31 @@ uint8_t enrollAS2(uint8_t slot, String name, String code) {
     t = millis();
     while (fingerAS2.getImage() != FINGERPRINT_OK) {
         server.handleClient();
-        if (millis() - t > 15000) { pixels.clear(); pixels.show(); return FINGERPRINT_TIMEOUT; }
+        oledLoop();
+        if (millis() - t > 15000) {
+            pixels.clear(); pixels.show();
+            oledShow(OLED_ENROLL_FAIL, "Timeout lan 2");
+            return FINGERPRINT_TIMEOUT;
+        }
     }
-    if (fingerAS2.image2Tz(2)      != FINGERPRINT_OK) { pixels.clear(); pixels.show(); return FINGERPRINT_IMAGEMESS; }
-    if (fingerAS2.createModel()    != FINGERPRINT_OK) { pixels.clear(); pixels.show(); return FINGERPRINT_ENROLLMISMATCH; }
-    if (fingerAS2.storeModel(slot) != FINGERPRINT_OK) { pixels.clear(); pixels.show(); return FINGERPRINT_BADLOCATION; }
+    if (fingerAS2.image2Tz(2) != FINGERPRINT_OK) {
+        pixels.clear(); pixels.show();
+        oledShow(OLED_ENROLL_FAIL, "Anh mo lan 2");
+        return FINGERPRINT_IMAGEMESS;
+    }
+    if (fingerAS2.createModel() != FINGERPRINT_OK) {
+        pixels.clear(); pixels.show();
+        oledShow(OLED_ENROLL_FAIL, "2 lan khong khop");
+        return FINGERPRINT_ENROLLMISMATCH;
+    }
+    if (fingerAS2.storeModel(slot) != FINGERPRINT_OK) {
+        pixels.clear(); pixels.show();
+        oledShow(OLED_ENROLL_FAIL, "Loi ghi flash");
+        return FINGERPRINT_BADLOCATION;
+    }
 
-    Serial.printf("[AS2]  Enroll slot #%d OK\n", slot);
+    Serial.printf("[AS2] Enroll slot #%d OK\n", slot);
+    oledShow(OLED_ENROLL_OK, name + " #" + String(slot));  // ← OLED: Thành công
     syncAfterEnroll(slot, name, code, 1);  // sensorIdx=1 → chỉ ghi as2_
     pixels.clear(); pixels.show();
     return slot;
@@ -396,17 +454,20 @@ void checkAS1() {
             uint16_t score = fingerAS1.confidence;
             String name = prefs.getString(("as1_user_" + String(id)).c_str(), "Unknown");
             String code = prefs.getString(("as1_code_" + String(id)).c_str(), "");
-            Serial.printf("[AS1]  Match! Slot:%d Code:%s Name:%s Score:%d\n",
+            Serial.printf("[AS1] Match! Slot:%d Code:%s Name:%s Score:%d\n",
                           id, code.c_str(), name.c_str(), score);
+            oledShow(OLED_GRANTED, name);   // ← OLED
             logAccessAS1(id, "", name, true, code);
             openLock();
         } else {
             Serial.printf("[AS1] Tin cậy quá thấp (%d) → từ chối\n", fingerAS1.confidence);
+            oledShow(OLED_DENIED, "AS1 - Thap diem");  // ← OLED
             logAccessAS1(0, "", "Unknown", false, "");
             denyAccess();
         }
     } else if (p == FINGERPRINT_NOTFOUND) {
         Serial.println("[AS1] Không khớp");
+        oledShow(OLED_DENIED, "AS1 - Khong khop");     // ← OLED
         logAccessAS1(0, "", "Unknown", false, "");
         denyAccess();
     }
@@ -429,17 +490,20 @@ void checkAS2() {
             uint16_t score = fingerAS2.confidence;
             String name = prefs.getString(("as2_user_" + String(id)).c_str(), "Unknown");
             String code = prefs.getString(("as2_code_" + String(id)).c_str(), "");
-            Serial.printf("[AS2]  Match! Slot:%d Code:%s Name:%s Score:%d\n",
+            Serial.printf("[AS2] Match! Slot:%d Code:%s Name:%s Score:%d\n",
                           id, code.c_str(), name.c_str(), score);
+            oledShow(OLED_GRANTED, name);   // ← OLED
             logAccessAS2(id, "", name, true, code);
             openLock();
         } else {
             Serial.printf("[AS2] Tin cậy quá thấp (%d) → từ chối\n", fingerAS2.confidence);
+            oledShow(OLED_DENIED, "AS2 - Thap diem");  // ← OLED
             logAccessAS2(0, "", "Unknown", false, "");
             denyAccess();
         }
     } else if (p == FINGERPRINT_NOTFOUND) {
         Serial.println("[AS2] Không khớp");
+        oledShow(OLED_DENIED, "AS2 - Khong khop");     // ← OLED
         logAccessAS2(0, "", "Unknown", false, "");
         denyAccess();
     }
@@ -467,6 +531,7 @@ void syncFromServer(uint8_t sensorIdx) {
     HardwareSerial&       serial = (sensorIdx == 0) ? fpSerialAS1 : fpSerialAS2;
 
     Serial.printf("=== BẮT ĐẦU SYNC TỪ SERVER [%s] ===\n", sensorName.c_str());
+    oledShow(OLED_SYNCING, sensorName);    // ← OLED
     pixels.setPixelColor(0, pixels.Color(128, 0, 128));
     pixels.show();
 
@@ -521,6 +586,7 @@ void syncFromServer(uint8_t sensorIdx) {
     }
 
     Serial.printf("=== SYNC [%s] XONG: %d user ===\n", sensorName.c_str(), successCount);
+    oledShow(OLED_IDLE);                   // ← OLED: Về IDLE sau khi sync xong
     pixels.clear(); pixels.show();
 }
 
@@ -594,7 +660,7 @@ void emptyDatabaseAS1() {
             if (c.length()) prefs.remove(("as1_slot_" + c).c_str());
         }
     }
-    Serial.println("[AS1] ✅ Xóa xong");
+    Serial.println("[AS1] Xóa xong");
 }
 
 void emptyDatabaseAS2() {
@@ -609,7 +675,7 @@ void emptyDatabaseAS2() {
             if (c.length()) prefs.remove(("as2_slot_" + c).c_str());
         }
     }
-    Serial.println("[AS2] ✅ Xóa xong");
+    Serial.println("[AS2] Xóa xong");
 }
 
 // =========================================

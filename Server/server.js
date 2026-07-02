@@ -226,27 +226,32 @@ app.post('/api/log', async (req, res) => {
 });
 
 // =========================================
-// GET /api/log?sensor=AS608|R503|rfid|remote
-// =========================================
-// =========================================
 // GET /api/log?sensor=as608_1|as608_2|r503|rfid|remote
 // =========================================
 app.get('/api/log', async (req, res) => {
-    const { sensor } = req.query; 
+    const { sensor, date } = req.query; // Nhận thêm tham số lọc theo ngày
     
     try {
+        // Sử dụng WHERE 1=1 để dễ dàng nối thêm các điều kiện lọc phía sau
         let query = `SELECT id, user_id, uid, name, code, method, granted, 
-                     DATE_FORMAT(created_at, '%H:%M:%S - %d/%m/%Y') AS formatted_time 
-                     FROM access_logs`;
+                     DATE_FORMAT(created_at, '%H:%i:%S - %d/%m/%Y') AS formatted_time 
+                     FROM access_logs WHERE 1=1`;
         let params = [];
 
+        // 1. Lọc theo thiết bị cảm biến
         if (sensor && sensor !== 'all') {
-            query += ` WHERE method = ?`;
-            // Chuẩn hóa tham số tìm kiếm về chữ thường và đổi '-' thành '_' giống lúc lưu DB
+            query += ` AND method = ?`;
             params.push(sensor.toLowerCase().replace('-', '_'));
         }
 
-        query += ` ORDER BY id DESC LIMIT 20`; 
+        // 2. Lọc theo ngày (Thêm phần này)
+        if (date && date.trim() !== '') {
+            query += ` AND DATE(created_at) = ?`;
+            params.push(date); // date có dạng '2026-06-17'
+        }
+
+        // Sắp xếp log mới nhất lên đầu, nâng giới hạn lên 100 dòng để xem được nhiều log trong ngày
+        query += ` ORDER BY id DESC LIMIT 100`; 
 
         const [rows] = await db.execute(query, params);
         
